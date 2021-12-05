@@ -13,7 +13,6 @@ from reshapeFrame import reshapeFrame
 
 def ZigZagTransform(block):
     zigzag = []
-    reverse_block = [i[::-1] for i in block[::-1]]
 
     for index in range(1, len(block) + 1):
         slice = [i[:index] for i in block[:index]]
