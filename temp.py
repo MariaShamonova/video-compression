@@ -12,6 +12,7 @@ from DCT import DCT
 from reshapeFrame import reshapeFrame
 
 p_frame_thresh = 300000
+YCbCrTransform = [[0.2999, 0.587, 0.114], [-0.168736, -0.7331264, 0.5], [0.5, -0.418688, -0.081312]]
 
 
 def degreeOfSimilarity(block1, block2):
@@ -50,9 +51,10 @@ def setChromaticSamples(frame_y, frame):
         for j in range(0, c):
             x = 2*i + 1
             y = 2*j+1
-            blocks[i][j] = [frame[x][y][0] - frame_y[x]
-                            [y], frame[x][y][1] - frame_y[x][y]]
+            blocks[i][j] = [0.713 * (frame[x][y][0] - frame_y[x])
+                            [y], 0.564 * (frame[x][y][2] - frame_y[x][y])]
     return blocks
+
 
 
 if __name__ == "__main__":
@@ -94,7 +96,7 @@ if __name__ == "__main__":
             break
             # encodeFrame(frame)
         else:
-            quanted_frame = DCT(frame, 8, 15)
+            quanted_frame = DCT(frame, 8, 100)
 
     cv2.destroyAllWindows()
 
