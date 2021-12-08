@@ -44,29 +44,8 @@ def ZigZagTransform(block, N):
         if len(diag) % 2:
             diag.reverse()
         zigzag += diag
-
-    zigzag = np.array(zigzag).reshape(int(N*N/2), 2)
-    zigzag = encodingSeriasValue(zigzag)
+  
     return zigzag
-
-
-def encodingSeriasValue(block):
-    r, c = np.array(block).shape
-    pairs = [[[] for c in range(c)] for r in range(r)]
-
-    for index in reversed(range(0, len(block))):
-
-        if (block[index][0] == float(0) and block[index][1] == float(0)):
-            pairs.remove(pairs[index])
-        else:
-
-            pairs = [[block[i][0], block[i][1], 0] for i in range(0, index)]
-
-            pairs.append([block[index][0], block[index][1], 1])
-
-            return pairs
-
-    return []
 
 
 def DCT(frame, N, QP):
@@ -86,21 +65,15 @@ def DCT(frame, N, QP):
             A = [[math.sqrt((1 if (r == 0) else 2)/N) * math.cos(int(((2*c+1)*r*math.pi)/2*N))
                   for c in range(N)] for r in range(N)]
 
-            # Quantization
-            # quantization_coeff = QP * \
-            #     np.round(np.array(A).dot(X[i][j]).dot(
-            #         np.array(A).transpose()) / QP, 2)
             
             tempY = np.array(A).dot(X[i][j]).dot(np.array(A).transpose())
             
-            if (i == 2 and j == 4):
-                print("A: "+str(A))
-                print("X: "+str(X[i][j]))
-                print("Y: "+str(tempY))
             quantization_coeff = np.round(np.array(tempY).dot(np.linalg.inv(matrix_quantization_Y)))
-            # Encoding series-value
-            Y[i][j] = ZigZagTransform(quantization_coeff, N)
-            
+
+            Y[i][j] = ZigZagTransform(quantization_coeff, N) #sequence of values 
+            if (i == 3 and j == 4):
+                temp = entropyEncoding(Y[i][j])
+             
 
     
     return Y
