@@ -10,9 +10,10 @@ import numpy as np
 from matplotlib import pyplot as plt
 from DCT import DCT
 from reshapeFrame import reshapeFrame
+from entropyEncoding import entropyEncoding
+from transformToBitStream import transformToBitStream
 
 p_frame_thresh = 300000
-YCbCrTransform = [[0.2999, 0.587, 0.114], [-0.168736, -0.7331264, 0.5], [0.5, -0.418688, -0.081312]]
 
 
 def degreeOfSimilarity(block1, block2):
@@ -88,16 +89,16 @@ if __name__ == "__main__":
 
     cap.release()
 
-    quanted_frame = []
+    # all_dct_elements = []
+    abs_dct_elements, Y = DCT(frames[0], 8, 100)
+    
+    codewars = entropyEncoding(abs_dct_elements)
+  
+    # print(codewars)
+    transformToBitStream(codewars, Y)
 
-    for index, frame in enumerate(frames):
 
-        if (index > 0):
-            break
-            # encodeFrame(frame)
-        else:
-            quanted_frame = DCT(frame, 8, 100)
 
-    cv2.destroyAllWindows()
 
-    # 1.Разбить кадры на непересекающиеся блоки
+
+
