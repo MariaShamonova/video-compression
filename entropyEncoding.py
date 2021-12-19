@@ -15,9 +15,9 @@ from algorithmHaffman import HuffmanTree
 
 def getProbabilities(block):
     collection = collections.Counter(block)
-    
-    unique_numbers = sorted(collection.items(), key=lambda item: item[1])
    
+    unique_numbers = sorted(collection.items(), key=lambda item: item[1])
+    
     total_count = len(block)
     # probabilities = []
     probabilities = dict()
@@ -34,8 +34,10 @@ def entropyEncoding(blocks):
    
     probability = getProbabilities(blocks)
     # codewars = algorithmHaffman(probability)
+
     tree = HuffmanTree(probability)
     codewars = tree.get_code()
+   
     # print(codewars)
     # transformToBitStream(codewars, blocks)
 
