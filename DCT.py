@@ -70,6 +70,8 @@ def DCT(frame, N, QP):
 
     for i in range(0, shape[0]):
         for j in range(0, shape[1]):
+            
+            
 
             Y[i][j] = ZigZagTransform(
                 Quantization(FDCT(X[i][j], N)), N)

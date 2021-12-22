@@ -26,11 +26,11 @@ def Huffman_code(_vals):
 
     nodes = {}
 
-    for n in vals.keys():  # leafs initialization
+    for n in vals.keys():
 
         nodes[n] = []
 
-    while len(vals) > 1:  # binary tree creation
+    while len(vals) > 1: 
         s_vals = sorted(vals.items(), key=lambda x: x[1])
         a1 = s_vals[0][0]
         a2 = s_vals[1][0]
@@ -40,7 +40,7 @@ def Huffman_code(_vals):
     code = {}
     root = a1+a2
     tree = {}
-    # assignment of the code for the given binary tree
+
     tree = assign_code(nodes, root, code)
 
     return code, tree
@@ -48,39 +48,28 @@ def Huffman_code(_vals):
 
 def algorithmHaffman(freq):
 
-    # freq = [
-    # (8.167, 'a'), (1.492, 'b'), (2.782, 'c'), (4.253, 'd'),
-    # (12.702, 'e'),(2.228, 'f'), (2.015, 'g'), (6.094, 'h'),
-    # (6.966, 'i'), (0.153, 'j'), (0.747, 'k'), (4.025, 'l'),
-    # (2.406, 'm'), (6.749, 'n'), (7.507, 'o'), (1.929, 'p'),
-    # (0.095, 'q'), (5.987, 'r'), (6.327, 's'), (9.056, 't'),
-    # (2.758, 'u'), (1.037, 'v'), (2.365, 'w'), (0.150, 'x'),
-    # (1.974, 'y'), (0.074, 'z') ]
-
     vals = {l: v for (v, l) in freq}
 
     code, tree = Huffman_code(vals)
 
-    # print(code)
-    text = '4363'  # text to encode
-    print(code)
-    # потму что в текущем алгоритме он ищет это число побуквенно, а у меня цифра
-    encoded = ''.join([code[text]])
-    print('Encoded text:', encoded)
+    # text = '4363'  # text to encode
+    
+    # encoded = ''.join([code[text]])
+    # print('Encoded text:', encoded)
 
-    decoded = []
-    i = 0
-    while i < len(encoded):  # decoding using the binary graph
-        ch = encoded[i]
-        act = tree[ch]
-        while not isinstance(act, str):
-            i += 1
-            ch = encoded[i]
-            act = act[ch]
-        decoded.append(act)
-        i += 1
+    # decoded = []
+    # i = 0
+    # while i < len(encoded):  # decoding using the binary graph
+    #     ch = encoded[i]
+    #     act = tree[ch]
+    #     while not isinstance(act, str):
+    #         i += 1
+    #         ch = encoded[i]
+    #         act = act[ch]
+    #     decoded.append(act)
+    #     i += 1
 
-    print('Decoded text:', ''.join(decoded))
+    # print('Decoded text:', ''.join(decoded))
     return code
 
 
