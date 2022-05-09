@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="61e18e14-8130-48d8-9f68-da8dddc03e00" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/constants.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/encoder.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/repository.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/DCT.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Quantization.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/ZigZagTransform.py" beforeDir="false" afterPath="$PROJECT_DIR$/ZigZagTransform.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/algorithmHaffman.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/decoder.py" beforeDir="false" afterPath="$PROJECT_DIR$/decoder.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/entropyEncoding.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/temp.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/transformToBitStream.py" beforeDir="false" afterPath="$PROJECT_DIR$/transformToBitStream.py" afterDir="false" />
+    </list>
+    <list id="73eb2cc4-da46-4604-afba-54e55ad39ed7" name="Changes by maksim" comment="">
+      <change beforePath="$PROJECT_DIR$/temp.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="LineStatusTrackerManager">
+    <file path="$PROJECT_DIR$/main.py">
+      <ranges>
+        <range start1="10" end1="11" start2="10" end2="10" changelist="61e18e14-8130-48d8-9f68-da8dddc03e00" />
+        <range start1="12" end1="15" start2="11" end2="13" changelist="61e18e14-8130-48d8-9f68-da8dddc03e00" />
+        <range start1="17" end1="18" start2="15" end2="16" changelist="61e18e14-8130-48d8-9f68-da8dddc03e00" />
+        <range start1="23" end1="25" start2="21" end2="21" changelist="61e18e14-8130-48d8-9f68-da8dddc03e00" />
+        <range start1="41" end1="55" start2="37" end2="37" changelist="61e18e14-8130-48d8-9f68-da8dddc03e00" />
+        <range start1="56" end1="61" start2="38" end2="76" changelist="73eb2cc4-da46-4604-afba-54e55ad39ed7" />
+        <range start1="63" end1="70" start2="78" end2="84" changelist="73eb2cc4-da46-4604-afba-54e55ad39ed7" />
+        <range start1="71" end1="72" start2="85" end2="87" changelist="73eb2cc4-da46-4604-afba-54e55ad39ed7" />
+        <range start1="74" end1="75" start2="89" end2="89" changelist="61e18e14-8130-48d8-9f68-da8dddc03e00" />
+        <range start1="86" end1="93" start2="100" end2="103" changelist="61e18e14-8130-48d8-9f68-da8dddc03e00" />
+        <range start1="94" end1="98" start2="104" end2="105" changelist="61e18e14-8130-48d8-9f68-da8dddc03e00" />
+        <range start1="101" end1="102" start2="108" end2="109" changelist="61e18e14-8130-48d8-9f68-da8dddc03e00" />
+        <range start1="107" end1="121" start2="114" end2="120" changelist="61e18e14-8130-48d8-9f68-da8dddc03e00" />
+      </ranges>
+    </file>
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
+  <component name="ProjectId" id="28pRwvkevl6A308NRJ67U13KE6M" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+  </component>
+  <component name="RunManager">
+    <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Video_Compression" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.main" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="61e18e14-8130-48d8-9f68-da8dddc03e00" name="Changes" comment="" />
+      <created>1651911783416</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1651911783416</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/main.py</url>
+          <line>86</line>
+          <option name="timeStamp" value="15" />
+        </line-breakpoint>
+      </breakpoints>
+      <default-breakpoints>
+        <breakpoint type="python-exception">
+          <properties notifyOnTerminate="true" exception="BaseException">
+            <option name="notifyOnTerminate" value="true" />
+          </properties>
+        </breakpoint>
+      </default-breakpoints>
+    </breakpoint-manager>
+  </component>
+</project>
