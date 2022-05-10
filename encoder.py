@@ -4,7 +4,7 @@ import math
 import numpy as np
 from constants import MATRIX_QUANTIZATION
 from repository import get_probabilities, HuffmanTree
-
+from sklearn.metrics import mean_squared_error
 
 @dataclasses.dataclass
 class Encoder:
@@ -134,12 +134,66 @@ class Encoder:
 
         return bit_stream
 
-    def motion_estimation(self):
-        print('motion_estimation')
-        motion_vector = []
+    @staticmethod
+    def _calculate_distance(array_1: np.ndarray, array_2: np.ndarray) -> float:
+        return np.linalg.norm(np.array(array_1) - np.array(array_2))
+        # return mean_squared_error(array_1, array_2)
 
+    def motion_estimation(self, capture_1_Y, capture_2_Y, width, height, block_sizes, search_areas):
 
-        return motion_vector
+        width_num = width // block_sizes
+        height_num = height // block_sizes
+        # Number of motion vectors
+        vet_nums = width_num * height_num
+        # Used to save motion vectors and coordinate values
+        motion_vectors = []
+        # Give null value first
+        motion_vectors = [[0, 0] for _ in range(vet_nums)]
+
+        motion_vectors_for_draw = [[[0, 0, 0, 0] for j in range(width_num)] for i in range( height_num)]
+
+        similarity = 0
+        num = 0
+        end_num = search_areas // block_sizes
+
+        # Calculation interval, used to make up 0
+        interval = (search_areas - block_sizes) // 2
+        # Construct a template image and add 0 to the previous frame image
+        mask_image_1 = np.zeros((height + interval * 2,  width + interval * 2))
+
+        mask_image_1[:mask_image_1.shape[0] - interval*2 , :mask_image_1.shape[1] - interval*2] = np.array(capture_1_Y)
+
+        mask_width, mask_height = mask_image_1.shape
+
+        predict_image = np.zeros(capture_1_Y.shape)
+        print([[[0, 0] for j in range(height_num)] for i in range(width_num)])
+        #     count = 0
+        for i in range(height_num):
+            for j in range(width_num):
+                #             count += 1
+                #         print(f'==================i:{i}=j:{j}==count:{count}=====================')
+                temp_image = capture_2_Y[i * block_sizes:(i + 1) * block_sizes, j * block_sizes:(j + 1) * block_sizes]
+                mask_image = mask_image_1[i * block_sizes:i * block_sizes + search_areas,
+                             j * block_sizes:j * block_sizes + search_areas]
+                #  Given initial value for comparison
+                temp_res = self._calculate_distance(mask_image[:block_sizes, :block_sizes], temp_image)
+                for k in range(end_num):
+                    for h in range(end_num):
+                        temp_mask = mask_image[k * block_sizes:(k + 1) * block_sizes,
+                                    h * block_sizes:(h + 1) * block_sizes]
+
+                        res = self._calculate_distance(temp_mask, temp_image)
+                        if res <= temp_res:
+                            temp_res = res
+                            motion_vectors[i * j][0], motion_vectors[i * j ][1] = k, h
+
+                            motion_vectors_for_draw[i][j][0], motion_vectors_for_draw[i][j][1], motion_vectors_for_draw[i][j][2], motion_vectors_for_draw[i][j][3] = \
+                                i * search_areas + search_areas//2, j*search_areas + search_areas//2, \
+                                     i*search_areas + k*block_sizes + search_areas//2,  j*search_areas + h*block_sizes + search_areas//2
+                            predict_image[i * block_sizes:(i + 1) * block_sizes,
+                            j * block_sizes:(j + 1) * block_sizes] = temp_mask
+        #                         print(motion_vectors_for_draw[i*j+j])
+        return np.array(predict_image), np.array(motion_vectors), np.array(motion_vectors_for_draw)
 
 
 

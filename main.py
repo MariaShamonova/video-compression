@@ -6,6 +6,7 @@ This is a temporary script file.
 """
 
 import cv2
+import pickle
 import numpy as np
 from matplotlib import pyplot as plt
 from reshapeFrame import reshapeFrame
@@ -87,14 +88,49 @@ def decode(bit_stream, codewars, shape):
     Y = decoder.concat_blocks(Y)
     return Y
 
+def create_rec_frame(reconstructed_frame):
+    with open('reconstructed.txt', "wb") as f:
+        pickle.dump(reconstructed_frame, f)
+
+def read_rec_frame():
+    with open('reconstructed.txt', 'rb') as f:
+        b = pickle.load(f)
+    return b
+
+def draw_motion_vectors(image, motion_vector_draw):
+    print('draw_motion_vectors')
+
+    color = (0, 255, 0)
+    thickness = 2
+    height, width, index = image.shape
+    width_num = width // block_sizes
+    height_num = height // block_sizes
+
+    for i in range(height_num):
+        for j in range(width_num):
+
+            # print(motion_vector_draw[i*j+j])
+            start_point = (int(motion_vector_draw[i][j][0]), int(motion_vector_draw[i][j][1]))
+            end_point = (int(motion_vector_draw[i][j][2]), int(motion_vector_draw[i][j][3]))
+
+            image = cv2.arrowedLine(image, start_point, end_point,
+                                    color, thickness)
+
+    print(image.shape)
+
+    return image
+
+
+
+
 if __name__ == "__main__":
-    cap = cv2.VideoCapture('video.mp4')
+    cap = cv2.VideoCapture('video.MOV')
 
     i = 0
     frames = []
 
-    # while(cap.isOpened()):
-    while(i < 1):
+    while(cap.isOpened()):
+    # while(i < 1000):
     
         ret, frame = cap.read()
         
@@ -110,21 +146,42 @@ if __name__ == "__main__":
         i += 1
 
     cap.release()
-    frame = cv2.imread('frame_1.jpeg', cv2.COLOR_RGB2BGR)
-    bit_stream, codewars, frame_y = encode(frames[0])
+    # frame = cv2.imread('frame_1.jpeg', cv2.COLOR_RGB2BGR)
+    # bit_stream, codewars, frame_y = encode(frames[0])
+    print(len(frames))
+    print(frames[0].shape)
+    # reconstructed_frame = decode(bit_stream, codewars, frame_y.shape)
+    # create_rec_frame(reconstructed_frame)
+    reconstructed_frame = read_rec_frame()
+    enc = Encoder()
+    height, width, index = frames[3].shape
+    block_sizes = 16
+    search_areas = 64
 
-    decode_frame_y = decode(bit_stream, codewars, frame_y.shape)
-    height, width = frame_y.shape
-    div = (2160, 3840)
-    upsampled_image = cv2.resize(decode_frame_y, div, interpolation=cv2.INTER_CUBIC)
+    frame_y = enc.transform_rgb_to_y(frames[3])
+
+    predict_image, motion_vectors, motion_vectors_for_draw = enc.motion_estimation(reconstructed_frame, frame_y, width, height, block_sizes, search_areas)
+    image = draw_motion_vectors(frames[3], motion_vectors_for_draw)
 
 
+    # height, width = frame_y.shape
+    # div = (2160, 3840)
+    # upsampled_image = cv2.resize(decode_frame_y, div, interpolation=cv2.INTER_CUBIC)
+
+    #
     fig = plt.figure()
     ax = fig.add_subplot(1, 2, 1)
-    ax.imshow(frame_y, cmap=plt.get_cmap(name='gray'))
+    ax.imshow(reconstructed_frame, cmap=plt.get_cmap(name='gray'))
     ax2 = fig.add_subplot(1, 2, 2)
-    ax2.imshow(upsampled_image, cmap=plt.get_cmap(name='gray'))
+    ax2.imshow(frame_y, cmap=plt.get_cmap(name='gray'))
     plt.show()
+
+    cv2.namedWindow('displaymywindows', cv2.WINDOW_NORMAL)
+    cv2.imshow('displaymywindows', image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
 
 
 
