@@ -32,7 +32,9 @@ class Decoder:
             i = (0 if index % 2 == 0 else index - 1)
             j = (0 if index % 2 == 1 else index - 1)
             for ind in range(len(slice)):
+
                 blocks_8x8[i][j] = zigzag[0]
+
                 zigzag.pop(0)
                 i = i + (1 if index % 2 == 0 else -1)
                 j = j + (1 if index % 2 == 1 else -1)
@@ -64,10 +66,10 @@ class Decoder:
         rows = int(shape[0] / 8)
         columns = int(shape[1] / 8)
 
+        blocks = [[[] for i in range(columns)] for j in range(rows)]
+
         r = 0
         c = 0
-
-        blocks = [[[] for i in range(columns)] for j in range(rows)]
 
         start_time = time.time()
         while i <= len(bit_stream):
@@ -88,8 +90,13 @@ class Decoder:
                         values.extend([0 for z in range(int(N * N - len(values)))])
 
                         blocks[r][c] = values
-                        r = (r + 1 if r < rows - 1 else 0)
+
+                        if c == columns - 1 and r < rows - 1:
+                            r += 1
+
                         c = (c + 1 if c < columns - 1 else 0)
+
+
                         values = []
                     countValues = 0
                     i += 2
@@ -107,16 +114,14 @@ class Decoder:
         blocks = np.array(blocks)
         frame = []
 
-        r = blocks.shape[0]
+        rows = blocks.shape[0]
 
-        for i in range(r):
+        for i in range(rows):
             frame.append(np.concatenate((blocks[i]), axis=1))
 
-        for i in range(0, r):
-            if r > 1:
-                frame.append(np.concatenate((frame[i]), axis=2))
+        frame = np.concatenate(frame, axis=0)
 
-        return np.array(frame[0])
+        return np.array(frame)
 
 
 

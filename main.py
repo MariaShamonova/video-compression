@@ -77,6 +77,7 @@ def decode(bit_stream, codewars, shape):
 
     for i in range(r):
         for j in range(c):
+
             Y[i][j] = decoder.inverse_zig_zag_transform(blocks[i][j], 8)
 
             Y[i][j] = decoder.dequantization(Y[i][j])
@@ -97,26 +98,32 @@ if __name__ == "__main__":
     
         ret, frame = cap.read()
         
-        frame = cv2.imread('frame_1.jpeg', cv2.COLOR_RGB2BGR)
+        # frame = cv2.imread('frame_1.jpeg', cv2.COLOR_RGB2BGR)
 
-        bit_stream, codewars, frame_y = encode(frame)
-        decode_frame_y = decode(bit_stream, codewars, frame_y.shape)
 
 
         if ret == False:
             break
 
-        # frames.append(frame_y)
+        frames.append(frame)
 
         i += 1
 
     cap.release()
+    frame = cv2.imread('frame_1.jpeg', cv2.COLOR_RGB2BGR)
+    bit_stream, codewars, frame_y = encode(frames[0])
+
+    decode_frame_y = decode(bit_stream, codewars, frame_y.shape)
+    height, width = frame_y.shape
+    div = (2160, 3840)
+    upsampled_image = cv2.resize(decode_frame_y, div, interpolation=cv2.INTER_CUBIC)
+
 
     fig = plt.figure()
     ax = fig.add_subplot(1, 2, 1)
     ax.imshow(frame_y, cmap=plt.get_cmap(name='gray'))
     ax2 = fig.add_subplot(1, 2, 2)
-    ax2.imshow(decode_frame_y, cmap=plt.get_cmap(name='gray'))
+    ax2.imshow(upsampled_image, cmap=plt.get_cmap(name='gray'))
     plt.show()
 
 

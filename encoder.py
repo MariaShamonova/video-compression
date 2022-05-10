@@ -134,7 +134,12 @@ class Encoder:
 
         return bit_stream
 
+    def motion_estimation(self):
+        print('motion_estimation')
+        motion_vector = []
 
+
+        return motion_vector
 
 
 
