@@ -2,15 +2,56 @@ import dataclasses
 import math
 
 import numpy as np
-from constants import MATRIX_QUANTIZATION
+from constants import MATRIX_QUANTIZATION, BLOCK_SIZE, SEARCH_AREA, BLOCK_SIZE_FOR_DCT
 from repository import get_probabilities, HuffmanTree
+from reshapeFrame import reshapeFrame
 from sklearn.metrics import mean_squared_error
+
 
 @dataclasses.dataclass
 class Encoder:
+    def encode(self, frame):
+
+        X, shape = reshapeFrame(frame, BLOCK_SIZE_FOR_DCT)
+        Y = [[[] for c in range(shape[1])] for r in range(shape[0])]
+        all_dct_elements = []
+
+        for i in range(0, shape[0]):
+            for j in range(0, shape[1]):
+                dct_coeff = self.dct(X[i][j], BLOCK_SIZE_FOR_DCT)
+                quantinization_coeff = self.quantization(dct_coeff)
+                sequence_coeff = self.zig_zag_transform(quantinization_coeff)
+
+                series_value_coeff = self.separate_pair(sequence_coeff)
+                Y[i][j] = series_value_coeff
+                all_dct_elements.append(abs(Y[i][j][1]))
+                all_dct_elements.extend([abs(Y[i][j][index])
+                                         for index in range(1, len(Y[i][j]) - 1)])
+
+        dict_Haffman = self.entropy_encoder(all_dct_elements)
+        bit_stream = self.transform_to_bit_stream(dict_Haffman, Y)
+
+        return bit_stream, dict_Haffman, frame
+
+    def encode_I_frame(self, frame):
+        print(frame.shape)
+        frame_y = self.transform_rgb_to_y(frame)
+
+        return self.encode(frame=frame_y)
+
+    def encode_B_frame(self, frame, reconstructed_frame):
+        height, width, index = frame.shape
+
+        frame_y = self.transform_rgb_to_y(frame)
+        predict_image, motion_vectors, motion_vectors_for_draw = self.motion_estimation(reconstructed_frame, frame_y,
+                                                                                           width, height, BLOCK_SIZE,
+                                                                                           SEARCH_AREA)
+        residual_frame = self.residual_compression(frame_y, predict_image)
+        return self.encode(frame=residual_frame, motion_vectors=motion_vectors)
 
     @staticmethod
     def transform_rgb_to_y(rgb):
+
         return np.dot(rgb[..., :3], [0.299, 0.587, 0.114])
 
     @staticmethod
@@ -28,13 +69,13 @@ class Encoder:
         return blocks
 
     @staticmethod
-    def _get_matrix_A(N):
-        A = [[np.round(math.sqrt((1 if (i == 0) else 2) / N) * math.cos(((2 * j + 1) * i * math.pi) / (2 * N)), 3)
-              for j in range(0, N)] for i in range(0, N)]
+    def _get_matrix_A(BLOCK_SIZE_FOR_DCT):
+        A = [[np.round(math.sqrt((1 if (i == 0) else 2) / BLOCK_SIZE_FOR_DCT) * math.cos(((2 * j + 1) * i * math.pi) / (2 * BLOCK_SIZE_FOR_DCT)), 3)
+              for j in range(0, BLOCK_SIZE_FOR_DCT)] for i in range(0, BLOCK_SIZE_FOR_DCT)]
         return A
 
-    def dct(self, X, N):
-        A = self._get_matrix_A(N)
+    def dct(self, X, BLOCK_SIZE_FOR_DCT):
+        A = self._get_matrix_A(BLOCK_SIZE_FOR_DCT)
 
         return np.array(A).dot(X).dot(np.array(A).transpose())
 
@@ -68,31 +109,35 @@ class Encoder:
         return zigzag
 
     @staticmethod
-    def entropy_encoder(self):
-        print("EntropyEncoder")
-
-    @staticmethod
     def separate_pair(seq):
-        transformSeq = []
-        while (seq[len(seq) - 1] == 0):
-            seq.pop(len(seq) - 1)
+        transform_seq = []
+        i = len(seq) - 1
+
+        try:
+            while seq[i] == 0:
+                if i == 0:
+                    break
+                i -= 1
+        except:
+            print(seq)
 
         count_zero = 0
+        seq = seq[:i + 1]
 
         for i in range(0, len(seq)):
 
-            if (seq[i] != 0):
-                isLatestElement = 'ЕОВ' if i == (len(seq) - 1) else 0
-                transformSeq.extend([count_zero, seq[i], isLatestElement])
+            if seq[i] != 0:
+                is_latest_element = 'ЕОВ' if i == (len(seq) - 1) else 0
+                transform_seq.extend([63, seq[i], is_latest_element])
 
                 count_zero = 0
             else:
                 count_zero += 1
 
-        return transformSeq
+        return transform_seq
 
     @staticmethod
-    def entropy_encoding(blocks):
+    def entropy_encoder(blocks):
 
         probability = get_probabilities(blocks)
         # codewars = algorithmHaffman(probability)
@@ -139,7 +184,7 @@ class Encoder:
         return np.linalg.norm(np.array(array_1) - np.array(array_2))
         # return mean_squared_error(array_1, array_2)
 
-    def motion_estimation(self, capture_1_Y, capture_2_Y, width, height, block_sizes, search_areas):
+    def motion_estimation(self, reconstructed_image, original_frame, width, height, block_sizes, search_areas):
 
         width_num = width // block_sizes
         height_num = height // block_sizes
@@ -161,18 +206,18 @@ class Encoder:
         # Construct a template image and add 0 to the previous frame image
         mask_image_1 = np.zeros((height + interval * 2,  width + interval * 2))
 
-        mask_image_1[:mask_image_1.shape[0] - interval*2 , :mask_image_1.shape[1] - interval*2] = np.array(capture_1_Y)
+        mask_image_1[:mask_image_1.shape[0] - interval*2 , :mask_image_1.shape[1] - interval*2] = np.array(reconstructed_image)
 
         mask_width, mask_height = mask_image_1.shape
 
-        predict_image = np.zeros(capture_1_Y.shape)
+        predict_image = np.zeros(reconstructed_image.shape)
         print([[[0, 0] for j in range(height_num)] for i in range(width_num)])
         #     count = 0
         for i in range(height_num):
             for j in range(width_num):
                 #             count += 1
                 #         print(f'==================i:{i}=j:{j}==count:{count}=====================')
-                temp_image = capture_2_Y[i * block_sizes:(i + 1) * block_sizes, j * block_sizes:(j + 1) * block_sizes]
+                temp_image = original_frame[i * block_sizes:(i + 1) * block_sizes, j * block_sizes:(j + 1) * block_sizes]
                 mask_image = mask_image_1[i * block_sizes:i * block_sizes + search_areas,
                              j * block_sizes:j * block_sizes + search_areas]
                 #  Given initial value for comparison
@@ -195,6 +240,8 @@ class Encoder:
         #                         print(motion_vectors_for_draw[i*j+j])
         return np.array(predict_image), np.array(motion_vectors), np.array(motion_vectors_for_draw)
 
+    def residual_compression(self, original_frame, predicted_frame):
+        return np.subtract(original_frame, predicted_frame)
 
 
 
