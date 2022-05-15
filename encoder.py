@@ -6,32 +6,39 @@ from constants import MATRIX_QUANTIZATION, BLOCK_SIZE, SEARCH_AREA, BLOCK_SIZE_F
 from repository import get_probabilities, HuffmanTree
 from reshapeFrame import reshapeFrame
 from sklearn.metrics import mean_squared_error
+from scipy.fftpack import dct, idct
 
 
 @dataclasses.dataclass
 class Encoder:
+
     def encode(self, frame):
 
-        X, shape = reshapeFrame(frame, BLOCK_SIZE_FOR_DCT)
-        Y = [[[] for c in range(shape[1])] for r in range(shape[0])]
+        X = reshapeFrame(frame, BLOCK_SIZE_FOR_DCT)
+        width, height = X.shape[0], X.shape[1]
+
+        Y = [[[] for c in range(height)] for r in range(width)]
         all_dct_elements = []
 
-        for i in range(0, shape[0]):
-            for j in range(0, shape[1]):
+        for i in range(0, width):
+            for j in range(0, height):
                 dct_coeff = self.dct(X[i][j], BLOCK_SIZE_FOR_DCT)
                 quantinization_coeff = self.quantization(dct_coeff)
-                sequence_coeff = self.zig_zag_transform(quantinization_coeff)
+                Y[i][j] = quantinization_coeff
 
-                series_value_coeff = self.separate_pair(sequence_coeff)
-                Y[i][j] = series_value_coeff
-                all_dct_elements.append(abs(Y[i][j][1]))
-                all_dct_elements.extend([abs(Y[i][j][index])
-                                         for index in range(1, len(Y[i][j]) - 1)])
+                # sequence_coeff = self.zig_zag_transform(quantinization_coeff)
+                #
+                # series_value_coeff = self.separate_pair(sequence_coeff)
+                # Y[i][j] = series_value_coeff
+                # all_dct_elements.append(abs(Y[i][j][1]))
+                # all_dct_elements.extend([abs(Y[i][j][index])
+                #                          for index in range(1, len(Y[i][j]) - 1)])
 
-        dict_Haffman = self.entropy_encoder(all_dct_elements)
-        bit_stream = self.transform_to_bit_stream(dict_Haffman, Y)
+        # dict_Haffman = self.entropy_encoder(all_dct_elements)
+        # bit_stream = self.transform_to_bit_stream(dict_Haffman, Y)
 
-        return bit_stream, dict_Haffman, frame
+        # return bit_stream, dict_Haffman, frame
+        return Y
 
     def encode_I_frame(self, frame):
         print(frame.shape)
@@ -47,7 +54,7 @@ class Encoder:
                                                                                            width, height, BLOCK_SIZE,
                                                                                            SEARCH_AREA)
         residual_frame = self.residual_compression(frame_y, predict_image)
-        return self.encode(frame=residual_frame, motion_vectors=motion_vectors)
+        return self.encode(frame=residual_frame), motion_vectors, predict_image, residual_frame
 
     @staticmethod
     def transform_rgb_to_y(rgb):
@@ -193,7 +200,7 @@ class Encoder:
         # Used to save motion vectors and coordinate values
         motion_vectors = []
         # Give null value first
-        motion_vectors = [[0, 0] for _ in range(vet_nums)]
+        motion_vectors = [[[0, 0] for _ in range(width_num)] for _ in range(height_num)]
 
         motion_vectors_for_draw = [[[0, 0, 0, 0] for j in range(width_num)] for i in range( height_num)]
 
@@ -211,7 +218,7 @@ class Encoder:
         mask_width, mask_height = mask_image_1.shape
 
         predict_image = np.zeros(reconstructed_image.shape)
-        print([[[0, 0] for j in range(height_num)] for i in range(width_num)])
+        # print([[[0, 0] for j in range(height_num)] for i in range(width_num)])
         #     count = 0
         for i in range(height_num):
             for j in range(width_num):
@@ -230,7 +237,7 @@ class Encoder:
                         res = self._calculate_distance(temp_mask, temp_image)
                         if res <= temp_res:
                             temp_res = res
-                            motion_vectors[i * j][0], motion_vectors[i * j ][1] = k, h
+                            motion_vectors[i ][j][0], motion_vectors[i][j][1] = k, h
 
                             motion_vectors_for_draw[i][j][0], motion_vectors_for_draw[i][j][1], motion_vectors_for_draw[i][j][2], motion_vectors_for_draw[i][j][3] = \
                                 i * search_areas + search_areas//2, j*search_areas + search_areas//2, \

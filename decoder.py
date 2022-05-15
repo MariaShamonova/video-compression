@@ -3,15 +3,19 @@ import math
 import time
 
 import numpy as np
-from constants import MATRIX_QUANTIZATION, BLOCK_SIZE, SEARCH_AREA, BLOCK_SIZE_FOR_DCT
+from matplotlib import pyplot as plt
 
+from constants import MATRIX_QUANTIZATION, BLOCK_SIZE, SEARCH_AREA, BLOCK_SIZE_FOR_DCT
+from reshapeFrame import reshapeFrame
+from repository import concat_blocks
 
 @dataclasses.dataclass
 class Decoder:
 
-    def decode(self, bit_stream, codewars, shape):
-
-        blocks = self.entropy_decoder(bit_stream, codewars, BLOCK_SIZE_FOR_DCT, shape)
+    # def decode(self, bit_stream, codewars, shape):
+    def decode(self, blocks):
+        shape = (1920, 1080)
+        # blocks = self.entropy_decoder(bit_stream, codewars, BLOCK_SIZE_FOR_DCT, shape)
 
         r = len(blocks)
         c = len(blocks[0])
@@ -22,24 +26,42 @@ class Decoder:
         for i in range(r):
             for j in range(c):
 
-                Y[i][j] = self.inverse_zig_zag_transform(blocks[i][j], 8)
+                # Y[i][j] = self.inverse_zig_zag_transform(blocks[i][j], 8)
+                Y[i][j] = blocks[i][j]
 
                 Y[i][j] = self.dequantization(Y[i][j])
 
-                Y[i][j] = self.idct(Y[i][j], BLOCK_SIZE_FOR_DCT)
+                Y[i][j] = self.idct(Y[i][j])
 
         Y = self.concat_blocks(Y)
         return Y
 
-    def decode_B_frame(self, frame,  residual_frame):
-        height, width, index = frame.shape
-        frame_y = self.transform_rgb_to_y(frame)
-        predict_image, motion_vectors, motion_vectors_for_draw = self.motion_estimation(reconstructed_frame, frame_y,
-                                                                                        width, height, BLOCK_SIZE,
-                                                                                        SEARCH_AREA)
-        reconstructed_frame = self.residual_decompression(frame, residual_frame)
+    def decode_B_frame(self, residual_frame, reconstructed_frame, motion_vectors):
+        print('motion compensetion for B frames')
+        width, height = residual_frame.shape
+        micro_blocks = reshapeFrame(reconstructed_frame, BLOCK_SIZE)
+        predicted_image = reshapeFrame(np.zeros(reconstructed_frame.shape), BLOCK_SIZE)
 
-        return self.encode(frame=residual_frame)
+        width_num = width // BLOCK_SIZE
+        height_num = height // BLOCK_SIZE
+
+        for i in range(width_num):
+            for j in range(height_num):
+
+                current_vector = motion_vectors[i][j]
+                try:
+                    predicted_image[i][j] = micro_blocks[i + current_vector[0]][j + current_vector[1]]
+                except:
+                    print(i, j)
+        predicted_image = concat_blocks(predicted_image)
+        return self.residual_decompression(predicted_image, residual_frame), predicted_image, residual_frame
+
+        # predict_image, motion_vectors, motion_vectors_for_draw = self.motion_estimation(reconstructed_frame, frame_y,
+        #                                                                                 width, height, BLOCK_SIZE,
+        #                                                                                 SEARCH_AREA)
+        # reconstructed_frame = self.residual_decompression(frame, residual_frame)
+
+        # return self.encode(frame=residual_frame)
 
     @staticmethod
     def _get_matrix_A():
@@ -187,6 +209,7 @@ class Decoder:
         return np.array(restruct_image, dtype=np.uint8)
 
     def residual_decompression(self, original_frame, predicted_frame):
+
         return np.add(original_frame, predicted_frame)
 
 

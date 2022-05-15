@@ -16,10 +16,12 @@ from decoder import Decoder
 p_frame_thresh = 300000
 N = 8
 
+
 def degreeOfSimilarity(block1, block2):
     # Евклидовая норма разницы двух матриц
     diff = block1 - block2
     np.linalg.norm(diff, ord=None, axis=None, keepdims=False)
+
 
 def splitIntoDisjointBlocks(block):
     result = block.reshape(3, 4, 4)
@@ -37,36 +39,16 @@ def searchForKeyframes(curr_frame, prev_frame):
     print('search key frames')
 
 
-def decode(bit_stream, codewars, shape):
-    decoder = Decoder()
-    blocks = decoder.entropy_decoder(bit_stream, codewars, N, shape)
-
-    r = len(blocks)
-    c = len(blocks[0])
-
-    Y = [[[] for c in range(int(shape[1] / N))]
-         for r in range(int(shape[0] / N))]
-
-    for i in range(r):
-        for j in range(c):
-
-            Y[i][j] = decoder.inverse_zig_zag_transform(blocks[i][j], 8)
-
-            Y[i][j] = decoder.dequantization(Y[i][j])
-
-            Y[i][j] = decoder.idct(Y[i][j], N)
-
-    Y = decoder.concat_blocks(Y)
-    return Y
-
 def create_rec_frame(reconstructed_frame):
     with open('reconstructed.txt', "wb") as f:
         pickle.dump(reconstructed_frame, f)
+
 
 def read_rec_frame():
     with open('reconstructed.txt', 'rb') as f:
         b = pickle.load(f)
     return b
+
 
 def draw_motion_vectors(image, motion_vector_draw):
     print('draw_motion_vectors')
@@ -101,6 +83,7 @@ def write_video_file(frames):
     #     out.write(image)
     # out.release()
 
+
 if __name__ == "__main__":
     cap = cv2.VideoCapture('video.MOV')
     encoder = Encoder()
@@ -114,29 +97,51 @@ if __name__ == "__main__":
     reconstructed_frames = []
 
     # while(cap.isOpened()):
-    while(i < 2):
-    
+    while(i < 5):
+
         ret, frame = cap.read()
-        if i % 5 == 0:
+        frame_y = encoder.transform_rgb_to_y(frame)
+        if i == 0 or i == 4:
+            if i % 5 == 0:
+                # bit_stream, dict_Haffman, frame_y = encoder.encode_I_frame(frame=frame)
+                print(i)
+                quantinization_coeff = encoder.encode_I_frame(frame=frame)
+            else:
 
-            bit_stream, dict_Haffman, frame_y = encoder.encode_I_frame(frame=frame)
-        else:
-            bit_stream, dict_Haffman, frame_y = encoder.encode_B_frame(frame=frame, reconstructed_frame=reconstructed_frames[i - 1])
+                # bit_stream, dict_Haffman, frame_y = encoder.encode_B_frame(frame=frame, reconstructed_frame=reconstructed_frames[i - 1])
+                quantinization_coeff, motion_vectors,  predict_image, residual_frame = encoder.encode_B_frame(frame=frame, reconstructed_frame=reconstructed_frames[len(reconstructed_frames) - 1])
 
-        inverse_transformed_frame = decode(bit_stream, dict_Haffman, frame_y.shape)
+            # inverse_transformed_frame = decoder.decode(bit_stream, dict_Haffman, frame_y.shape)
+            inverse_transformed_frame = decoder.decode(quantinization_coeff)
 
-        if i % 5 == 0:
-            reconstructed_frames.append(inverse_transformed_frame)
-        else:
-            #Прибавить предыдущий реконструированный кадр
-            reconstructed_frames.append(decoder.restruct_image(inverse_transformed_frame))
-            fig = plt.figure()
-            ax = fig.add_subplot(1, 2, 1)
-            ax.imshow(frame_y, cmap=plt.get_cmap(name='gray'))
-            ax2 = fig.add_subplot(1, 2, 2)
-            ax2.imshow(reconstructed_frames[i], cmap=plt.get_cmap(name='gray'))
-            plt.show()
+            if i % 5 == 0:
+                reconstructed_frames.append(inverse_transformed_frame)
+            else:
+                #Прибавить предыдущий реконструированный кадр
+                rec, inv_predicted_image, inv_residual_frame = decoder.decode_B_frame(inverse_transformed_frame, reconstructed_frames[len(reconstructed_frames) - 1], motion_vectors)
+                reconstructed_frames.append(rec)
+                fig = plt.figure()
+                ax = fig.add_subplot(3, 2, 1)
+                ax.set_title('Original')
+                ax.imshow(reconstructed_frames[len(reconstructed_frames) - 1], cmap=plt.get_cmap(name='gray'))
+                ax2 = fig.add_subplot(3, 2, 2)
+                ax2.set_title('Decoded image')
+                ax2.imshow(rec, cmap=plt.get_cmap(name='gray'))
+                ax3 = fig.add_subplot(3, 2, 3)
+                ax3.set_title('predict_image')
+                ax3.imshow(predict_image, cmap=plt.get_cmap(name='gray'))
+                ax4 = fig.add_subplot(3, 2, 4)
+                ax4.set_title('residual_frame')
+                ax4.imshow( residual_frame, cmap=plt.get_cmap(name='gray'))
 
+                ax5 = fig.add_subplot(3, 2, 5)
+                ax5.set_title('inv_predicted_image')
+                ax5.imshow(inv_predicted_image, cmap=plt.get_cmap(name='gray'))
+                ax6 = fig.add_subplot(3, 2, 6)
+                ax6.set_title('inv_residual_frame')
+                ax6.imshow( inv_residual_frame, cmap=plt.get_cmap(name='gray'))
+                plt.show()
+                print(i)
         # fig = plt.figure()
         # ax = fig.add_subplot(1, 2, 1)
         # ax.imshow(frame_y, cmap=plt.get_cmap(name='gray'))

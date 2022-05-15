@@ -7,5 +7,5 @@ MATRIX_QUANTIZATION = [[16, 11, 10, 16, 2, 40, 51, 61],
                          [49, 64, 78, 87, 103, 121, 120, 101],
                          [72, 92, 95, 98, 112, 100, 108, 99]]
 BLOCK_SIZE_FOR_DCT = 8
-BLOCK_SIZE = 16
-SEARCH_AREA = 64
+BLOCK_SIZE = 8
+SEARCH_AREA = 32

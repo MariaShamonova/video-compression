@@ -117,18 +117,9 @@ def get_probabilities(block):
 
 def concat_blocks(blocks):
     blocks = np.array(blocks)
-    frame = []
-
-    r = blocks.shape[0]
-
-    for i in range(r):
-        frame.append(np.concatenate((blocks[i]), axis=1))
-
-    for i in range(0, r):
-        if (r > 1):
-            frame.append(np.concatenate((frame[i]), axis=2))
-
-    return frame
+    blocks = np.concatenate(blocks, axis=1)
+    blocks = np.concatenate(blocks, axis=1)
+    return blocks
 
 
 def get_values(bit_stream, codewars, N, shape):

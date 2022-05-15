@@ -17,4 +17,4 @@ def reshapeFrame(frame, N):
 
     X = np.lib.stride_tricks.as_strided(
         frame, shape=shape, strides=strides)
-    return X, shape
+    return X
