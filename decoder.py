@@ -5,56 +5,78 @@ import time
 import numpy as np
 from matplotlib import pyplot as plt
 
-from constants import MATRIX_QUANTIZATION, BLOCK_SIZE, SEARCH_AREA, BLOCK_SIZE_FOR_DCT
-from reshapeFrame import reshapeFrame
+from constants import MATRIX_QUANTIZATION, MATRIX_QUANTIZATION_CHROMATIC,  BLOCK_SIZE, SEARCH_AREA, BLOCK_SIZE
+from frame import Channels, Frame
+from repository import reshape_frame
 from repository import concat_blocks
 
 @dataclasses.dataclass
 class Decoder:
 
     # def decode(self, bit_stream, codewars, shape):
-    def decode(self, blocks):
+    def decode(self, encoded_channels: Channels, method, is_key_frame: bool) -> Frame:
+        assert encoded_channels.is_encoded is True
+
         shape = (1920, 1080)
         # blocks = self.entropy_decoder(bit_stream, codewars, BLOCK_SIZE_FOR_DCT, shape)
 
-        r = len(blocks)
-        c = len(blocks[0])
+        dequantized_channels = []
+        for idx, channel in enumerate(encoded_channels.list_channels):
+            frame_shape = encoded_channels.list_channels[idx].shape
+            rows, columns = frame_shape[0], frame_shape[1]
 
-        Y = [[[] for c in range(int(shape[1] / BLOCK_SIZE_FOR_DCT))]
-             for r in range(int(shape[0] / BLOCK_SIZE_FOR_DCT))]
+            Y = [[[] for columns in range(int(shape[1] / BLOCK_SIZE))]
+                 for rows in range(int(shape[0] / BLOCK_SIZE))]
 
-        for i in range(r):
-            for j in range(c):
+            for i in range(rows):
+                for j in range(columns):
+                    # Y[i][j] = self.inverse_zig_zag_transform(blocks[i][j], 8)
+                    Y[i][j] = encoded_channels.list_channels[idx][i][j]
+                    Y[i][j] = self.dequantization(Y[i][j],
+                                                  MATRIX_QUANTIZATION_CHROMATIC if idx > 0 else MATRIX_QUANTIZATION)
+                    Y[i][j] = self.idct(Y[i][j])
+            print(idx)
+            dequantized_channels.append(concat_blocks(Y))
 
-                # Y[i][j] = self.inverse_zig_zag_transform(blocks[i][j], 8)
-                Y[i][j] = blocks[i][j]
+        channels = Channels(
+            is_encoded=False,
+            luminosity=dequantized_channels[0],
+            chromaticCb=dequantized_channels[1],
+            chromaticCr=dequantized_channels[2]
+        )
+        return Frame(channels=channels, is_key_frame=is_key_frame)
 
-                Y[i][j] = self.dequantization(Y[i][j])
+    def decode_B_frame(self, decoded_frame: Frame, reconstructed_frame: Frame, method):
 
-                Y[i][j] = self.idct(Y[i][j])
+        reconstructed_channels = []
+        num_chanels = len(decoded_frame.channels.list_channels)
+        for chanel_index in range(num_chanels):
+            width, height = decoded_frame.channels.list_channels[chanel_index]
 
-        Y = self.concat_blocks(Y)
-        return Y
+            micro_blocks = reshape_frame(reconstructed_frame.channels.list_channels[chanel_index], BLOCK_SIZE)
+            predicted_image = reshape_frame(np.zeros(reconstructed_frame.channels.list_channels[chanel_index].shape), BLOCK_SIZE)
 
-    def decode_B_frame(self, residual_frame, reconstructed_frame, motion_vectors):
-        print('motion compensetion for B frames')
-        width, height = residual_frame.shape
-        micro_blocks = reshapeFrame(reconstructed_frame, BLOCK_SIZE)
-        predicted_image = reshapeFrame(np.zeros(reconstructed_frame.shape), BLOCK_SIZE)
+            width_num = width // BLOCK_SIZE
+            height_num = height // BLOCK_SIZE
 
-        width_num = width // BLOCK_SIZE
-        height_num = height // BLOCK_SIZE
+            for i in range(width_num):
+                for j in range(height_num):
 
-        for i in range(width_num):
-            for j in range(height_num):
+                    current_vector = reconstructed_frame.channels.list_motion_vectors[chanel_index][i][j]
+                    try:
+                        predicted_image[i][j] = micro_blocks[i + current_vector[0]][j + current_vector[1]]
+                    except:
+                        print(i, j)
+            print(predicted_image.shape)
+            predicted_image = concat_blocks(predicted_image)
+            reconstructed_channels.append(self.residual_decompression(predicted_image,
+                                                                   decoded_frame.channels.list_channels[chanel_index]))
+        channels = Channels(is_encoded=False,
+                            luminosity=reconstructed_channels[0],
+                            chromaticCb=reconstructed_channels[1],
+                            chromaticCr=reconstructed_channels[2])
 
-                current_vector = motion_vectors[i][j]
-                try:
-                    predicted_image[i][j] = micro_blocks[i + current_vector[0]][j + current_vector[1]]
-                except:
-                    print(i, j)
-        predicted_image = concat_blocks(predicted_image)
-        return self.residual_decompression(predicted_image, residual_frame), predicted_image, residual_frame
+        return Frame(channels=channels, is_key_frame=decoded_frame.is_key_frame)
 
         # predict_image, motion_vectors, motion_vectors_for_draw = self.motion_estimation(reconstructed_frame, frame_y,
         #                                                                                 width, height, BLOCK_SIZE,
@@ -65,8 +87,8 @@ class Decoder:
 
     @staticmethod
     def _get_matrix_A():
-        A = [[np.round(math.sqrt((1 if (i == 0) else 2) / BLOCK_SIZE_FOR_DCT) * math.cos(((2 * j + 1) * i * math.pi) / (2 * BLOCK_SIZE_FOR_DCT)), 3)
-              for j in range(0, BLOCK_SIZE_FOR_DCT)] for i in range(0, BLOCK_SIZE_FOR_DCT)]
+        A = [[np.round(math.sqrt((1 if (i == 0) else 2) / BLOCK_SIZE) * math.cos(((2 * j + 1) * i * math.pi) / (2 * BLOCK_SIZE)), 3)
+			  for j in range(0, BLOCK_SIZE)] for i in range(0, BLOCK_SIZE)]
         return A
 
 
@@ -75,8 +97,8 @@ class Decoder:
 
         return np.array(A).transpose().dot(Y).dot(np.array(A))
 
-    def dequantization(self, Y):
-        return np.multiply(np.array(Y), MATRIX_QUANTIZATION)
+    def dequantization(self, Y, coefficient):
+        return np.multiply(np.array(Y), coefficient)
 
     def inverse_zig_zag_transform(self, zigzag, BLOCK_SIZE_FOR_DCT):
         blocks_8x8 = np.zeros((BLOCK_SIZE_FOR_DCT, BLOCK_SIZE_FOR_DCT))
@@ -162,20 +184,6 @@ class Decoder:
             i += 1
         print("--- %s seconds ---" % (time.time() - start_time))
         return blocks
-
-    @staticmethod
-    def concat_blocks(blocks):
-        blocks = np.array(blocks)
-        frame = []
-
-        rows = blocks.shape[0]
-
-        for i in range(rows):
-            frame.append(np.concatenate((blocks[i]), axis=1))
-
-        frame = np.concatenate(frame, axis=0)
-
-        return np.array(frame)
 
     @staticmethod
     def restruct_image(width, height, block_sizes, search_areas, motion_vectors, residual_image, pre_frame):

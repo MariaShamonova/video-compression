@@ -9,8 +9,9 @@ Created on Tue Dec  7 21:28:57 2021
 import collections
 import time
 
+import cv2
 import numpy as np
-
+from constants import BLOCK_SIZE
 
 class Node(object):
     def __init__(self, name=None, value=None):
@@ -42,7 +43,6 @@ class HuffmanTree(object):
             for i in range(length):
                 code += str(self.Buffer[i])
             self.Dict[node.name] = code
-            # print('\n')
             return
 
         self.Buffer[length] = 0
@@ -92,7 +92,6 @@ def Huffman_code(_vals):
 
 
 def algorithm_Haffman(freq):
-    print('algorithm_Haffman')
     vals = {l: v for (v, l) in freq}
 
     code, tree = Huffman_code(vals)
@@ -105,7 +104,6 @@ def get_probabilities(block):
     unique_numbers = sorted(collection.items(), key=lambda item: item[1])
 
     total_count = len(block)
-    # probabilities = []
     probabilities = dict()
 
     for ind, item in unique_numbers:
@@ -128,7 +126,7 @@ def get_values(bit_stream, codewars, N, shape):
 
     codewars = dict((v, k) for k, v in codewars.items())
 
-    countValues = 0
+    count_values = 0
     i = 0
 
     rows = int(shape[0] / 8)
@@ -145,16 +143,16 @@ def get_values(bit_stream, codewars, N, shape):
             bites += bit_stream[i]
             value = codewars[bites]
 
-            if (countValues == 0):
+            if count_values == 0:
 
                 values.extend([0 for z in range(int(value))])
 
-                countValues = 1
-            elif (countValues == 1):
+                count_values = 1
+            elif count_values == 1:
                 values.append(
                     int(('' if int(bit_stream[i + 1]) else '-') + value))  # Значение
 
-                if (bit_stream[i + 2] == '1'):
+                if bit_stream[i + 2] == '1':
 
                     values.extend([0 for z in range(int(N*N - len(values)))])
 
@@ -162,14 +160,49 @@ def get_values(bit_stream, codewars, N, shape):
                     r = (r + 1 if r < rows - 1 else 0)
                     c = (c + 1 if c < columns - 1 else 0)
                     values = []
-                countValues = 0
+                count_values = 0
                 i += 2
             bites = ''
 
         except Exception:
-
             pass
 
         i += 1
     print("--- %s seconds ---" % (time.time() - start_time))
 
+
+def draw_motion_vectors(image, motion_vector):
+    color = (0, 255, 0)
+    thickness = 2
+    height, width, index = image.shape
+    width_num = width // BLOCK_SIZE
+    height_num = height // BLOCK_SIZE
+
+    for i in range(height_num):
+        for j in range(width_num):
+
+            start_point = (int(i), int(j))
+            end_point = (int(motion_vector[i][j] + i), int(motion_vector[i][j] + j))
+            if start_point != end_point:
+                image = cv2.arrowedLine(
+                    image,
+                    start_point,
+                    end_point,
+                    color,
+                    thickness
+                )
+
+    print(image.shape)
+
+    return image
+
+def reshape_frame(frame, N):
+    h, w = np.array(frame).shape
+    sz = np.array(frame).itemsize
+    bh, bw = N, N
+    shape = (int(h/bh), int(w/bw), bh, bw)
+    strides = sz*np.array([w*bh, bw, w, 1])
+
+    X = np.lib.stride_tricks.as_strided(
+        frame, shape=shape, strides=strides)
+    return X
