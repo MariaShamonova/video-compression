@@ -3,6 +3,15 @@ from typing import Optional
 
 import cv2
 import numpy as np
+from matplotlib import pyplot as plt
+
+from repository import round_num
+
+def append_zeros(frame):
+	width, height = frame.shape
+	mask = np.zeros((round_num(width), round_num(height)))
+	mask[:width, :height] = np.array(frame)
+	return mask
 
 
 @dataclasses.dataclass
@@ -14,18 +23,35 @@ class Frame:
 			SSH = 2
 			crf = cv2.boxFilter(ycbcr[:, :, 1], ddepth=-1, ksize=(2, 2))
 			cbf = cv2.boxFilter(ycbcr[:, :, 2], ddepth=-1, ksize=(2, 2))
-			crsub = crf[::SSV, ::SSH]
-			cbsub = cbf[::SSV, ::SSH]
+			crsub = append_zeros(crf[::SSV, ::SSH])
+			cbsub = append_zeros(cbf[::SSV, ::SSH])
+
 			self.channels = Channels(is_encoded=False, luminosity=ycbcr[:, :, 0], chromaticCb=cbsub, chromaticCr=crsub)
 		if channels is not None:
-			assert channels.is_encoded is True
+			assert channels.is_encoded is False
 			self.channels = channels
 
 		self.is_key_frame = is_key_frame
 
 	def show_frame(self):
-		return cv2.merge([self.channels.luminosity, self.channels.chromaticCb, self.channels.chromaticCr])
+		w, h = self.channels.luminosity.shape
+		DecAll = cv2.merge([cv2.resize(self.channels.luminosity, (h, w)), cv2.resize(self.channels.chromaticCb, (h, w)), cv2.resize(self.channels.chromaticCr, (h, w))])
 
+
+		reImg = cv2.cvtColor(DecAll.astype(np.uint8), cv2.COLOR_YCrCb2BGR)
+
+		#
+		# img3 = np.zeros(self.channels.luminosity.shape, np.uint8)
+		# img3[:, :, 0] = reImg[:, :, 2]
+		# img3[:, :, 1] = reImg[:, :, 1]
+		# img3[:, :, 2] = reImg[:, :, 0]
+
+		# SSE = np.sqrt(np.sum((self.channels.chromaticCb - img3) ** 2))
+		# print
+		# "Sum of squared error: ", SSE
+		cv2.imshow('dd', reImg)
+		cv2.waitKey(0)  # wait for a keyboard input
+		cv2.destroyAllWindows()
 
 
 

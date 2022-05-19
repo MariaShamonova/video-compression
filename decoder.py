@@ -5,7 +5,7 @@ import time
 import numpy as np
 from matplotlib import pyplot as plt
 
-from constants import MATRIX_QUANTIZATION, MATRIX_QUANTIZATION_CHROMATIC,  BLOCK_SIZE, SEARCH_AREA, BLOCK_SIZE
+from constants import MATRIX_QUANTIZATION, MATRIX_QUANTIZATION_CHROMATIC, SEARCH_AREA, BLOCK_SIZE
 from frame import Channels, Frame
 from repository import reshape_frame
 from repository import concat_blocks
@@ -14,55 +14,55 @@ from repository import concat_blocks
 class Decoder:
 
     # def decode(self, bit_stream, codewars, shape):
-    def decode(self, encoded_channels: Channels, method, is_key_frame: bool) -> Frame:
-        assert encoded_channels.is_encoded is True
+    def decode(self, encoded_frame: Frame, method, is_key_frame: bool) -> Frame:
+        assert encoded_frame.channels.is_encoded is True
 
-        shape = (1920, 1080)
+
         # blocks = self.entropy_decoder(bit_stream, codewars, BLOCK_SIZE_FOR_DCT, shape)
 
         dequantized_channels = []
-        for idx, channel in enumerate(encoded_channels.list_channels):
-            frame_shape = encoded_channels.list_channels[idx].shape
+        for idx, channel in enumerate(encoded_frame.channels.list_channels):
+
+            frame_shape = encoded_frame.channels.list_channels[idx].shape
             rows, columns = frame_shape[0], frame_shape[1]
 
-            Y = [[[] for columns in range(int(shape[1] / BLOCK_SIZE))]
-                 for rows in range(int(shape[0] / BLOCK_SIZE))]
+            Y = [[[] for c in range(columns)]
+                 for r in range(int(rows))]
 
             for i in range(rows):
                 for j in range(columns):
                     # Y[i][j] = self.inverse_zig_zag_transform(blocks[i][j], 8)
-                    Y[i][j] = encoded_channels.list_channels[idx][i][j]
+                    Y[i][j] = encoded_frame.channels.list_channels[idx][i][j]
                     Y[i][j] = self.dequantization(Y[i][j],
                                                   MATRIX_QUANTIZATION_CHROMATIC if idx > 0 else MATRIX_QUANTIZATION)
                     Y[i][j] = self.idct(Y[i][j])
             print(idx)
             dequantized_channels.append(concat_blocks(Y))
 
-        channels = Channels(
-            is_encoded=False,
-            luminosity=dequantized_channels[0],
-            chromaticCb=dequantized_channels[1],
-            chromaticCr=dequantized_channels[2]
-        )
-        return Frame(channels=channels, is_key_frame=is_key_frame)
+        encoded_frame.channels.luminosity = dequantized_channels[0]
+        encoded_frame.channels.chromaticCb = dequantized_channels[1]
+        encoded_frame.channels.chromaticCr = dequantized_channels[2]
+
+        return encoded_frame
 
     def decode_B_frame(self, decoded_frame: Frame, reconstructed_frame: Frame, method):
 
         reconstructed_channels = []
         num_chanels = len(decoded_frame.channels.list_channels)
         for chanel_index in range(num_chanels):
-            width, height = decoded_frame.channels.list_channels[chanel_index]
+            decoded_frame_shape = decoded_frame.channels.list_channels[chanel_index].shape
+            width, height = decoded_frame_shape[0], decoded_frame_shape[1]
 
             micro_blocks = reshape_frame(reconstructed_frame.channels.list_channels[chanel_index], BLOCK_SIZE)
             predicted_image = reshape_frame(np.zeros(reconstructed_frame.channels.list_channels[chanel_index].shape), BLOCK_SIZE)
 
-            width_num = width // BLOCK_SIZE
-            height_num = height // BLOCK_SIZE
+            width_num = int(width // BLOCK_SIZE)
+            height_num = int(height // BLOCK_SIZE)
 
             for i in range(width_num):
                 for j in range(height_num):
 
-                    current_vector = reconstructed_frame.channels.list_motion_vectors[chanel_index][i][j]
+                    current_vector = decoded_frame.channels.list_motion_vectors[chanel_index][i][j]
                     try:
                         predicted_image[i][j] = micro_blocks[i + current_vector[0]][j + current_vector[1]]
                     except:

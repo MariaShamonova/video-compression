@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 from constants import MATRIX_QUANTIZATION, MATRIX_QUANTIZATION_CHROMATIC, BLOCK_SIZE, SEARCH_AREA
 from frame import EncodedFrame, Frame, Channels
-from repository import get_probabilities, HuffmanTree, reshape_frame
+from repository import get_probabilities, HuffmanTree, reshape_frame, round_num
 
 from sklearn.metrics import mean_squared_error
 from scipy.fftpack import dct, idct
@@ -14,7 +14,7 @@ from scipy.fftpack import dct, idct
 @dataclasses.dataclass
 class Encoder:
 
-    def encode_traditional_method(self, frame: Frame) -> Channels:
+    def encode_traditional_method(self, frame: Frame) -> Frame:
 
         all_dct_elements = []
         quantized_channels = []
@@ -46,29 +46,27 @@ class Encoder:
             # return bit_stream, dict_Haffman, frame
             quantized_channels.append(np.array(Y))
 
-        return Channels(
-            is_encoded=True,
-            luminosity=quantized_channels[0],
-            chromaticCb=quantized_channels[1],
-            chromaticCr=quantized_channels[2]
-        )
+        frame.channels.is_encoded = True
+        frame.channels.luminosity = quantized_channels[0]
+        frame.channels.chromaticCb = quantized_channels[1]
+        frame.channels.chromaticCr = quantized_channels[2]
+        return frame
 
-    def encode_I_frame(self, frame: Frame, method) -> Channels:
-
+    def encode_I_frame(self, frame: Frame, method) -> Frame:
         if method == 0:
             return self.encode_traditional_method(frame=frame)
         else:
             return self.encodeNN(frame=frame)
 
-    def encode_B_frame(self, frame: Frame, reconstructed_frame: Frame, method) -> Channels:
+    def encode_B_frame(self, frame: Frame, reconstructed_frame: Frame, method) -> Frame:
         assert frame.is_key_frame is False
 
         residual_frame = self.motion_estimation(
             frame,
             reconstructed_frame
         )
-        encoded_channels = self.encode_traditional_method(frame=residual_frame)
-        return encoded_channels
+        encoded_frame = self.encode_traditional_method(frame=residual_frame)
+        return encoded_frame
 
     @staticmethod
     def transform_rgb_to_ycbcr(frame):
@@ -198,6 +196,8 @@ class Encoder:
         return np.linalg.norm(np.array(array_1) - np.array(array_2))
         # return mean_squared_error(array_1, array_2)
 
+
+
     def motion_estimation(
             self,
             current_frame: Frame,
@@ -214,26 +214,27 @@ class Encoder:
             width_num = width // BLOCK_SIZE
             height_num = height // BLOCK_SIZE
 
-            motion_vectors = [[[0, 0] for _ in range(width_num)] for _ in range(height_num)]
+            motion_vectors = [[[0, 0] for _ in range(height_num)] for _ in range( width_num)]
 
             end_num = SEARCH_AREA // BLOCK_SIZE
             interval = (SEARCH_AREA - BLOCK_SIZE) // 2
 
-            mask_image_1 = np.zeros((height + interval * 2, width + interval * 2))
+            mask_image_1 = np.zeros((width + interval * 2,   height + interval * 2))
             mask_image_1[:mask_image_1.shape[0] - interval * 2,
                         :mask_image_1.shape[1] - interval * 2] = np.array(reconstructed_channels)
 
             predict_image = np.zeros(reconstructed_channels.shape)
 
-            for i in range(height_num):
-                for j in range(width_num):
+            for i in range(width_num - 1):
+                for j in range(height_num - 1):
 
-                    temp_image = channel[i * BLOCK_SIZE:(i + 1) * BLOCK_SIZE,
-                                 j * BLOCK_SIZE:(j + 1) * BLOCK_SIZE]
-                    mask_image = mask_image_1[i * BLOCK_SIZE:i * BLOCK_SIZE + SEARCH_AREA,
-                                 j * BLOCK_SIZE:j * BLOCK_SIZE + SEARCH_AREA]
+                    temp_image = channel[i * BLOCK_SIZE: (i + 1) * BLOCK_SIZE,
+                                 j * BLOCK_SIZE: (j + 1) * BLOCK_SIZE]
+                    mask_image = mask_image_1[i * BLOCK_SIZE: i * BLOCK_SIZE + SEARCH_AREA,
+                                 j * BLOCK_SIZE: j * BLOCK_SIZE + SEARCH_AREA]
 
                     temp_res = self._calculate_distance(mask_image[:BLOCK_SIZE, :BLOCK_SIZE], temp_image)
+
                     for k in range(end_num):
                         for h in range(end_num):
                             temp_mask = mask_image[k * BLOCK_SIZE:(k + 1) * BLOCK_SIZE,
@@ -257,7 +258,7 @@ class Encoder:
                         mv_chromaticCb=mv_for_channels[1],
                         mv_chromaticCr=mv_for_channels[2])
 
-        return Frame(channels=channels, is_key_frame=frame)
+        return Frame(channels=channels, is_key_frame=current_frame.is_key_frame)
 
     @staticmethod
     def residual_compression(original_frame, predicted_frame):

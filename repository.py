@@ -113,6 +113,12 @@ def get_probabilities(block):
     return probabilities
 
 
+def round_num(num):
+    while num % 8 != 0:
+        num += 1
+    return num
+
+
 def concat_blocks(blocks):
     blocks = np.array(blocks)
     blocks = np.concatenate(blocks, axis=1)

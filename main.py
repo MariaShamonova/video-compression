@@ -31,7 +31,7 @@ def check_key_frame(index):
 
 
 if __name__ == "__main__":
-    cap = cv2.VideoCapture('video.MOV')
+    cap = cv2.VideoCapture('video1.mp4')
     encoder = Encoder()
     decoder = Decoder()
 
@@ -51,24 +51,27 @@ if __name__ == "__main__":
         if i == 0 or i == 4:
             if i % 5 == 0:
                 # bit_stream, dict_Haffman, frame_y = encoder.encode_I_frame(frame=frame)
-                encoded_channels = encoder.encode_I_frame(frame=frame, method=METHOD)
+                encoded_frame = encoder.encode_I_frame(frame=frame, method=METHOD)
             else:
                 # bit_stream, dict_Haffman, frame_y = encoder.encode_B_frame(frame=frame, reconstructed_frame=reconstructed_frames[i - 1])
-                encoded_channels = encoder.encode_B_frame(
+                encoded_frame = encoder.encode_B_frame(
                     frame=frame,
                     reconstructed_frame=reconstructed_frames[len(reconstructed_frames) - 1],
                     method=METHOD
                 )
 
+            # create_rec_frame(encoded_channels)
+            # encoded_channels = read_rec_frame()
+
             # inverse_transformed_frame = decoder.decode(bit_stream, dict_Haffman, frame_y.shape)
-            dequantized_channels = decoder.decode(encoded_channels, method=METHOD, is_key_frame=check_key_frame(i))
+            dequantized_frame = decoder.decode(encoded_frame, method=METHOD, is_key_frame=check_key_frame(i))
 
             if i % 5 == 0:
-                reconstructed_frames.append(Frame(channels=dequantized_channels))
+                reconstructed_frames.append(dequantized_frame)
             else:
                 #Прибавить предыдущий реконструированный кадр
                 reconstructed_frame = decoder.decode_B_frame(
-                    encoded_channels,
+                    dequantized_frame,
                     reconstructed_frames[len(reconstructed_frames) - 1],
                     method=METHOD
                 )
@@ -95,6 +98,8 @@ if __name__ == "__main__":
                 # ax6.imshow( inv_residual_frame, cmap=plt.get_cmap(name='gray'))
                 # plt.show()
                 print(i)
+                reconstructed_frame.show_frame()
+
         # fig = plt.figure()
         # ax = fig.add_subplot(1, 2, 1)
         # ax.imshow(frame_y, cmap=plt.get_cmap(name='gray'))
