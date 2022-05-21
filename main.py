@@ -7,21 +7,21 @@ This is a temporary script file.
 
 import cv2
 import pickle
-from matplotlib import pyplot as plt
 from encoder import Encoder
 from decoder import Decoder
-from frame import Frame
+from frame import Frame, Channels
+from repository import concat_blocks
 
 METHOD = 0
 
 
 def create_rec_frame(reconstructed_frame):
-    with open('reconstructed.txt', "wb") as f:
+    with open("reconstructed.txt", "wb") as f:
         pickle.dump(reconstructed_frame, f)
 
 
 def read_rec_frame():
-    with open('reconstructed.txt', 'rb') as f:
+    with open("reconstructed.txt", "rb") as f:
         b = pickle.load(f)
     return b
 
@@ -30,8 +30,9 @@ def check_key_frame(index):
     return index % 5 == 0
 
 
+
 if __name__ == "__main__":
-    cap = cv2.VideoCapture('video1.mp4')
+    cap = cv2.VideoCapture("video1.mp4")
     encoder = Encoder()
     decoder = Decoder()
 
@@ -39,16 +40,19 @@ if __name__ == "__main__":
     frames = []
 
     ret, frame = cap.read()
-
     reconstructed_frames = []
 
     while i < 5:
 
         ret, frame = cap.read()
 
-        frame = Frame(frame=frame, is_key_frame=check_key_frame(i))
+        HEIGHT, WIDTH, num_channels = frame.shape
+        frame = Frame(
+            frame=frame, is_key_frame=check_key_frame(i), width=WIDTH, height=HEIGHT
+        )
+        # frame.show_luminosity_channel()
 
-        if i == 0 or i == 4:
+        if i == 0:
             if i % 5 == 0:
                 # bit_stream, dict_Haffman, frame_y = encoder.encode_I_frame(frame=frame)
                 encoded_frame = encoder.encode_I_frame(frame=frame, method=METHOD)
@@ -56,24 +60,33 @@ if __name__ == "__main__":
                 # bit_stream, dict_Haffman, frame_y = encoder.encode_B_frame(frame=frame, reconstructed_frame=reconstructed_frames[i - 1])
                 encoded_frame = encoder.encode_B_frame(
                     frame=frame,
-                    reconstructed_frame=reconstructed_frames[len(reconstructed_frames) - 1],
-                    method=METHOD
+                    reconstructed_frame=reconstructed_frames[
+                        len(reconstructed_frames) - 1
+                    ],
+                    method=METHOD,
                 )
+            # temp_lum = concat_blocks(encoded_frame.channels.luminosity)
+            # temp_cr = concat_blocks(encoded_frame.channels.chromaticCr)
+            # temp_cb = concat_blocks(encoded_frame.channels.chromaticCb)
+            # temp_channels = Channels(luminosity=temp_lum, chromaticCr=temp_cr, chromaticCb=temp_cb, is_encoded=False)
+            # temp_frame = Frame(channels=temp_channels, is_key_frame=True, width=WIDTH, height=HEIGHT)
+            # temp_frame.show_frame()
 
             # create_rec_frame(encoded_channels)
             # encoded_channels = read_rec_frame()
 
             # inverse_transformed_frame = decoder.decode(bit_stream, dict_Haffman, frame_y.shape)
-            dequantized_frame = decoder.decode(encoded_frame, method=METHOD, is_key_frame=check_key_frame(i))
+            dequantized_frame = decoder.decode(encoded_frame, method=METHOD)
 
             if i % 5 == 0:
                 reconstructed_frames.append(dequantized_frame)
+                # dequantized_frame.show_luminosity_channel()
             else:
-                #Прибавить предыдущий реконструированный кадр
+                # Прибавить предыдущий реконструированный кадр
                 reconstructed_frame = decoder.decode_B_frame(
                     dequantized_frame,
                     reconstructed_frames[len(reconstructed_frames) - 1],
-                    method=METHOD
+                    method=METHOD,
                 )
                 reconstructed_frames.append(reconstructed_frame)
                 # fig = plt.figure()
@@ -98,6 +111,7 @@ if __name__ == "__main__":
                 # ax6.imshow( inv_residual_frame, cmap=plt.get_cmap(name='gray'))
                 # plt.show()
                 print(i)
+
                 reconstructed_frame.show_frame()
 
         # fig = plt.figure()
@@ -136,11 +150,9 @@ if __name__ == "__main__":
     # bit_stream, dict_Haffman, frame_y = encode(residual_frame)
     # reconstructed_frame = decode(bit_stream, dict_Haffman, frame_y.shape)
 
-
     # height, width = frame_y.shape
     # div = (2160, 3840)
     # upsampled_image = cv2.resize(decode_frame_y, div, interpolation=cv2.INTER_CUBIC)
-
 
     # fig = plt.figure()
     # ax = fig.add_subplot(1, 2, 1)
@@ -153,10 +165,3 @@ if __name__ == "__main__":
     # cv2.imshow('displaymywindows', image)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
-
-
-
-
-
-
-

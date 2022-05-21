@@ -13,6 +13,7 @@ import cv2
 import numpy as np
 from constants import BLOCK_SIZE
 
+
 class Node(object):
     def __init__(self, name=None, value=None):
         self.name = name
@@ -36,8 +37,8 @@ class HuffmanTree(object):
 
     def Hu_generate(self, tree, length):
         node = tree
-        code = ''
-        if (not node):
+        code = ""
+        if not node:
             return
         elif node.name:
             for i in range(length):
@@ -55,13 +56,13 @@ class HuffmanTree(object):
         return self.Dict
 
 
-def assign_code(nodes, label, result, prefix=''):
+def assign_code(nodes, label, result, prefix=""):
     childs = nodes[label]
     tree = {}
 
     if len(childs) == 2:
-        tree['0'] = assign_code(nodes, childs[0], result, prefix + '0')
-        tree['1'] = assign_code(nodes, childs[1], result, prefix + '1')
+        tree["0"] = assign_code(nodes, childs[0], result, prefix + "0")
+        tree["1"] = assign_code(nodes, childs[1], result, prefix + "1")
         return tree
     else:
         result[label] = prefix
@@ -128,7 +129,7 @@ def concat_blocks(blocks):
 
 def get_values(bit_stream, codewars, N, shape):
     values = []
-    bites = ''
+    bites = ""
 
     codewars = dict((v, k) for k, v in codewars.items())
 
@@ -156,19 +157,20 @@ def get_values(bit_stream, codewars, N, shape):
                 count_values = 1
             elif count_values == 1:
                 values.append(
-                    int(('' if int(bit_stream[i + 1]) else '-') + value))  # Значение
+                    int(("" if int(bit_stream[i + 1]) else "-") + value)
+                )  # Значение
 
-                if bit_stream[i + 2] == '1':
+                if bit_stream[i + 2] == "1":
 
-                    values.extend([0 for z in range(int(N*N - len(values)))])
+                    values.extend([0 for z in range(int(N * N - len(values)))])
 
                     blocks[r][c] = values
-                    r = (r + 1 if r < rows - 1 else 0)
-                    c = (c + 1 if c < columns - 1 else 0)
+                    r = r + 1 if r < rows - 1 else 0
+                    c = c + 1 if c < columns - 1 else 0
                     values = []
                 count_values = 0
                 i += 2
-            bites = ''
+            bites = ""
 
         except Exception:
             pass
@@ -190,25 +192,21 @@ def draw_motion_vectors(image, motion_vector):
             start_point = (int(i), int(j))
             end_point = (int(motion_vector[i][j] + i), int(motion_vector[i][j] + j))
             if start_point != end_point:
-                image = cv2.arrowedLine(
-                    image,
-                    start_point,
-                    end_point,
-                    color,
-                    thickness
-                )
+                image = cv2.arrowedLine(image, start_point, end_point, color, thickness)
 
     print(image.shape)
 
     return image
 
+
 def reshape_frame(frame, N):
     h, w = np.array(frame).shape
     sz = np.array(frame).itemsize
     bh, bw = N, N
-    shape = (int(h/bh), int(w/bw), bh, bw)
-    strides = sz*np.array([w*bh, bw, w, 1])
+    shape = (int(h / bh), int(w / bw), bh, bw)
+    strides = sz * np.array([w * bh, bw, w, 1])
 
-    X = np.lib.stride_tricks.as_strided(
-        frame, shape=shape, strides=strides)
+    X = np.lib.stride_tricks.as_strided(frame, shape=shape, strides=strides)
+    print(shape)
+    print(X.shape)
     return X
