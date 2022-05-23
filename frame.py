@@ -4,6 +4,8 @@ from typing import Optional
 import cv2
 import numpy as np
 from cv2 import dnn_superres
+from matplotlib import pyplot as plt
+
 from repository import round_num
 
 
@@ -27,24 +29,25 @@ class Frame:
     ):
 
         if frame is not None:
-            ycbcr = cv2.cvtColor(frame, cv2.COLOR_BGR2YCR_CB)
-            # cv2.imshow('ee', ycbcr)
-            # cv2.waitKey(0)
-            # reImg = cv2.cvtColor(ycbcr, cv2.COLOR_YCrCb2BGR)
-            # cv2.imshow('reImg', reImg)
-            # cv2.waitKey(0)
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+            r, g, b = cv2.split(frame_rgb)
+            y = .299 * r + .587 * g + .114 * b
+            cb = 128 - .168736 * r - .331364 * g + .5 * b
+            cr = 128 + .5 * r - .418688 * g - .081312 * b
+
             SSV = 2
             SSH = 2
-            crf = cv2.boxFilter(ycbcr[:, :, 1], ddepth=-1, ksize=(2, 2))
-            cbf = cv2.boxFilter(ycbcr[:, :, 2], ddepth=-1, ksize=(2, 2))
+            crf = cv2.boxFilter(cr, ddepth=-1, ksize=(2, 2))
+            cbf = cv2.boxFilter(cb, ddepth=-1, ksize=(2, 2))
             crsub = append_zeros(crf[::SSV, ::SSH])
             cbsub = append_zeros(cbf[::SSV, ::SSH])
 
             self.channels = Channels(
                 is_encoded=False,
-                luminosity=ycbcr[:, :, 0],
-                chromaticCb=cbsub,
-                chromaticCr=crsub,
+                luminosity=y.astype(np.uint8),
+                chromaticCb=cb.astype(np.uint8),
+                chromaticCr=cr.astype(np.uint8),
             )
         if channels is not None:
             assert channels.is_encoded is False
@@ -54,35 +57,37 @@ class Frame:
         self.width = width
         self.height = height
 
-    def show_luminosity_channel(self):
-        lum = self.channels.luminosity.astype("uint8")
-        cv2.imshow("show_luminosity_channel", lum)
-        cv2.waitKey(0)
-
     def show_frame(self):
 
-        DecAll = cv2.merge(
-            [
-                cv2.resize(self.channels.luminosity, (self.height, self.width)),
-                cv2.resize(self.channels.chromaticCr, (self.height, self.width)),
-                cv2.resize(self.channels.chromaticCb, (self.height,self.width)),
+        y = np.array(self.channels.luminosity)
 
-            ]
-        )
+        cb = np.array(cv2.resize(self.channels.chromaticCb, (self.width, self.height)))
 
-        reImg = cv2.cvtColor(DecAll.astype(np.uint8), cv2.COLOR_YCrCb2BGR)
+        cr = np.array(cv2.resize(self.channels.chromaticCr, (self.width, self.height)))
 
-        cv2.imshow("dd", reImg)
-        cv2.waitKey(0)  # wait for a keyboard input
-        cv2.destroyAllWindows()
+        rec_frame = cv2.merge([y, cb, cr]).astype(np.uint8)
+
+        xform = np.array([[1, 0, 1.402], [1, -0.34414, -.71414], [1, 1.772, 0]])
+        rgb = rec_frame.astype(np.float)
+        rgb[:, :, [1, 2]] -= 128
+        rgb = rgb.dot(xform.T)
+        np.putmask(rgb, rgb > 255, 255)
+        np.putmask(rgb, rgb < 0, 0)
+        rec_frame = cv2.cvtColor(np.uint8(rgb), cv2.COLOR_RGB2BGR)
+        cv2.imshow('res', rec_frame)
+        cv2.waitKey(0)
+
+        # cv2.imshow("dd", rec_frame)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
     def upsample_image(self):
 
         DecAll = cv2.merge(
             [
-                cv2.resize(self.channels.luminosity, (self.height, self.width)),
-                cv2.resize(self.channels.chromaticCr, (self.height, self.width)),
-                cv2.resize(self.channels.chromaticCb, (self.height, self.width)),
+                cv2.resize(self.channels.luminosity, (self.width, self.height)),
+                cv2.resize(self.channels.chromaticCr, (self.width, self.height)),
+                cv2.resize(self.channels.chromaticCb, (self.width, self.height)),
 
             ]
         )

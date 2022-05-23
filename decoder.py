@@ -33,14 +33,16 @@ class Decoder:
                     Y[i][j] = encoded_frame.channels.list_channels[idx][i][j]
                     Y[i][j] = self.dequantization(
                         Y[i][j],
-                        MATRIX_QUANTIZATION,
+                        MATRIX_QUANTIZATION_CHROMATIC
+                        if idx > 0
+                        else MATRIX_QUANTIZATION,
                     )
                     Y[i][j] = self.idct(Y[i][j])
 
             dequantized_channels.append(concat_blocks(Y))
 
         encoded_frame.channels.luminosity = dequantized_channels[0]
-        encoded_frame.show_luminosity_channel()
+
         encoded_frame.channels.chromaticCr = dequantized_channels[1]
         encoded_frame.channels.chromaticCb = dequantized_channels[2]
 

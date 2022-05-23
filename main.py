@@ -12,7 +12,7 @@ from decoder import Decoder
 from frame import Frame, Channels
 from repository import concat_blocks
 
-METHOD = 0
+METHOD = 1
 
 
 def create_rec_frame(reconstructed_frame):
@@ -47,6 +47,7 @@ if __name__ == "__main__":
         ret, frame = cap.read()
 
         HEIGHT, WIDTH, num_channels = frame.shape
+
         frame = Frame(
             frame=frame, is_key_frame=check_key_frame(i), width=WIDTH, height=HEIGHT
         )
@@ -80,7 +81,7 @@ if __name__ == "__main__":
 
             if i % 5 == 0:
                 reconstructed_frames.append(dequantized_frame)
-                # dequantized_frame.show_luminosity_channel()
+                dequantized_frame.show_frame()
             else:
                 # Прибавить предыдущий реконструированный кадр
                 reconstructed_frame = decoder.decode_B_frame(

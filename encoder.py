@@ -41,7 +41,9 @@ class Encoder:
 
                     quantinization_coeff = self.quantization(
                         dct_coeff,
-                        MATRIX_QUANTIZATION,
+                        MATRIX_QUANTIZATION_CHROMATIC
+                        if idx > 0
+                        else MATRIX_QUANTIZATION,
                     )
                     Y[i][j] = quantinization_coeff
 
