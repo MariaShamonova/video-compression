@@ -9,10 +9,10 @@ import cv2
 import pickle
 from encoder import Encoder
 from decoder import Decoder
-from frame import Frame, Channels
+from frame import Frame
 from repository import concat_blocks
 
-METHOD = 1
+METHOD = 0
 
 
 def create_rec_frame(reconstructed_frame):

@@ -95,9 +95,9 @@ class Decoder:
             .numpy()
         )
         encoded_frame.channels.is_encoded = False
-
+        upsampled_frame = encoded_frame.upsample_image()
         decoded_frame_channels = Frame(
-            frame=encoded_frame.upsample_image(),
+            frame=upsampled_frame,
             is_key_frame=encoded_frame.is_key_frame,
             width=encoded_frame.width,
             height=encoded_frame.height,

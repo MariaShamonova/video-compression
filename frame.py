@@ -46,8 +46,8 @@ class Frame:
             self.channels = Channels(
                 is_encoded=False,
                 luminosity=y.astype(np.uint8),
-                chromaticCb=cb.astype(np.uint8),
-                chromaticCr=cr.astype(np.uint8),
+                chromaticCb=crsub.astype(np.uint8),
+                chromaticCr=cbsub.astype(np.uint8),
             )
         if channels is not None:
             assert channels.is_encoded is False
@@ -101,7 +101,7 @@ class Frame:
         sr.setModel("edsr", 3)
         upsmpled_img = sr.upsample(reImg)
 
-        return cv2.resize(upsmpled_img, (self.height, self.width))
+        return cv2.resize(upsmpled_img, (self.width, self.height))
 
 
 @dataclasses.dataclass
