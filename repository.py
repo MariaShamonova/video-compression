@@ -180,9 +180,13 @@ def get_values(bit_stream, codewars, N, shape):
 
 
 def draw_motion_vectors(image, motion_vector):
+    backtorgb = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+    cv2.imshow('draw', backtorgb)
+    cv2.waitKey(0)
+    print(backtorgb)
     color = (0, 255, 0)
     thickness = 2
-    height, width, index = image.shape
+    height, width = image.shape
     width_num = width // BLOCK_SIZE
     height_num = height // BLOCK_SIZE
 
@@ -190,11 +194,9 @@ def draw_motion_vectors(image, motion_vector):
         for j in range(width_num):
 
             start_point = (int(i), int(j))
-            end_point = (int(motion_vector[i][j] + i), int(motion_vector[i][j] + j))
+            end_point = (int(motion_vector[i][j][0] + i), int(motion_vector[i][j][1] + j))
             if start_point != end_point:
-                image = cv2.arrowedLine(image, start_point, end_point, color, thickness)
-
-    print(image.shape)
+                image = cv2.arrowedLine(backtorgb, start_point, end_point, color, thickness)
 
     return image
 
@@ -210,3 +212,12 @@ def reshape_frame(frame, N):
     print(shape)
     print(X.shape)
     return X
+
+
+def compute_psnr(img_in, img_sam):
+    assert img_in.shape == img_sam.shape
+
+    mse = np.mean((img_in / 255. - img_sam / 255.) ** 2)
+    if mse < 1.0e-10:
+        return 100
+    return 20 * np.log10(1 / np.sqrt(mse))

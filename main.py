@@ -7,6 +7,10 @@ This is a temporary script file.
 
 import cv2
 import pickle
+
+import numpy as np
+from matplotlib import pyplot as plt
+
 from encoder import Encoder
 from decoder import Decoder
 from frame import Frame
@@ -32,28 +36,33 @@ def check_key_frame(index):
 
 
 if __name__ == "__main__":
-    cap = cv2.VideoCapture("video1.mp4")
+    cap = cv2.VideoCapture("video2.mp4")
+    framespersecond = int(cap.get(cv2.CAP_PROP_FPS))
+    print("number of frames in this video is ", framespersecond)
+
     encoder = Encoder()
     decoder = Decoder()
 
     i = 0
     frames = []
 
-    ret, frame = cap.read()
+    # ret, frame = cap.read()
+
     reconstructed_frames = []
 
     while i < 5:
 
         ret, frame = cap.read()
-
         HEIGHT, WIDTH, num_channels = frame.shape
 
         frame = Frame(
             frame=frame, is_key_frame=check_key_frame(i), width=WIDTH, height=HEIGHT
         )
-        # frame.show_luminosity_channel()
 
-        if i == 0:
+
+
+
+        if i == 0 or i == 1:
             if i % 5 == 0:
                 # bit_stream, dict_Haffman, frame_y = encoder.encode_I_frame(frame=frame)
                 encoded_frame = encoder.encode_I_frame(frame=frame, method=METHOD)
@@ -81,7 +90,11 @@ if __name__ == "__main__":
 
             if i % 5 == 0:
                 reconstructed_frames.append(dequantized_frame)
-                dequantized_frame.show_frame()
+                # cv2.imshow('deq', np.round(dequantized_frame.channels.luminosity, 0))
+                # cv2.waitKey(0)
+                # imgplot = plt.imshow(dequantized_frame.channels.luminosity, cmap='gray')
+                # plt.show()
+                # dequantized_frame.show_frame()
             else:
                 # Прибавить предыдущий реконструированный кадр
                 reconstructed_frame = decoder.decode_B_frame(
@@ -113,7 +126,7 @@ if __name__ == "__main__":
                 # plt.show()
                 print(i)
 
-                reconstructed_frame.show_frame()
+                # reconstructed_frame.show_frame()
 
         # fig = plt.figure()
         # ax = fig.add_subplot(1, 2, 1)
@@ -125,7 +138,7 @@ if __name__ == "__main__":
         if ret == False:
             break
 
-        frames.append(frame)
+
 
         i += 1
 

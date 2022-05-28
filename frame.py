@@ -46,8 +46,8 @@ class Frame:
             self.channels = Channels(
                 is_encoded=False,
                 luminosity=y.astype(np.uint8),
-                chromaticCb=crsub.astype(np.uint8),
-                chromaticCr=cbsub.astype(np.uint8),
+                chromaticCb=cbsub.astype(np.uint8),
+                chromaticCr=crsub.astype(np.uint8),
             )
         if channels is not None:
             assert channels.is_encoded is False
@@ -74,7 +74,7 @@ class Frame:
         np.putmask(rgb, rgb > 255, 255)
         np.putmask(rgb, rgb < 0, 0)
         rec_frame = cv2.cvtColor(np.uint8(rgb), cv2.COLOR_RGB2BGR)
-        cv2.imshow('res', rec_frame)
+        cv2.imshow('', rec_frame)
         cv2.waitKey(0)
 
         # cv2.imshow("dd", rec_frame)

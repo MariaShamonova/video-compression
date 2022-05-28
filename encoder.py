@@ -1,6 +1,7 @@
 import dataclasses
 import math
 
+from scipy.fftpack import dct, idct
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
@@ -12,7 +13,7 @@ from constants import (
     SEARCH_AREA,
 )
 from frame import EncodedFrame, Frame, Channels
-from repository import get_probabilities, HuffmanTree, reshape_frame, round_num
+from repository import get_probabilities, HuffmanTree, reshape_frame, draw_motion_vectors
 
 
 from sklearn.metrics import mean_squared_error
@@ -35,7 +36,8 @@ class Encoder:
 
             for i in range(0,  row):
                 for j in range(0, column):
-                    dct_coeff = self.dct(X[i][j], BLOCK_SIZE)
+
+                    dct_coeff = self.dct(X[i][j])
                     # if i == 0 and j == 0:
                     #     self.dct_output(dct_coeff)
 
@@ -48,7 +50,6 @@ class Encoder:
                     Y[i][j] = quantinization_coeff
 
                     # sequence_coeff = self.zig_zag_transform(quantinization_coeff)
-                    #
                     # series_value_coeff = self.separate_pair(sequence_coeff)
                     # Y[i][j] = series_value_coeff
                     # all_dct_elements.append(abs(Y[i][j][1]))
@@ -132,22 +133,13 @@ class Encoder:
         return [ycbcr[:, :, 0], crsub, cbsub]
 
     @staticmethod
-    def _get_matrix_A(BLOCK_SIZE_FOR_DCT):
-        A = [
-            [
-                np.round(
-                    math.sqrt((1 if (i == 0) else 2) / BLOCK_SIZE_FOR_DCT)
-                    * math.cos(((2 * j + 1) * i * math.pi) / (2 * BLOCK_SIZE_FOR_DCT)),
-                    3,
-                )
-                for j in range(0, BLOCK_SIZE_FOR_DCT)
-            ]
-            for i in range(0, BLOCK_SIZE_FOR_DCT)
-        ]
+    def _get_matrix_A(N):
+        A = [[np.round(math.sqrt((1 if (i == 0) else 2) / N) * math.cos(((2 * j + 1) * i * math.pi) / (2 * N)), 3)
+              for j in range(0, N)] for i in range(0, N)]
         return A
 
-    def dct(self, X, BLOCK_SIZE_FOR_DCT):
-        A = self._get_matrix_A(BLOCK_SIZE_FOR_DCT)
+    def dct(self, X, N=8):
+        A = self._get_matrix_A(N)
 
         return np.array(A).dot(X).dot(np.array(A).transpose())
 
@@ -209,7 +201,7 @@ class Encoder:
 
             if seq[i] != 0:
                 is_latest_element = "ЕОВ" if i == (len(seq) - 1) else 0
-                transform_seq.extend([63, seq[i], is_latest_element])
+                transform_seq.extend([count_zero, seq[i], is_latest_element])
 
                 count_zero = 0
             else:
@@ -271,11 +263,15 @@ class Encoder:
 
         mv_for_channels = []
         channels = []
+
         reconstructed_frame_channels = reconstructed_frame.channels.list_channels
 
-        for channel, reconstructed_channels in zip(
+        count = 0
+        for channel, reconstructed_channel in zip(
             current_frame.channels.list_channels, reconstructed_frame_channels
         ):
+            # cv2.imshow('pred', reconstructed_channel)
+            # cv2.waitKey(0)
             width, height = channel.shape
             width_num = width // BLOCK_SIZE
             height_num = height // BLOCK_SIZE
@@ -293,9 +289,9 @@ class Encoder:
             mask_image_1[
                 : mask_image_1.shape[0] - interval * 2,
                 : mask_image_1.shape[1] - interval * 2,
-            ] = np.array(reconstructed_channels)
+            ] = np.array(reconstructed_channel)
 
-            predict_image = np.zeros(reconstructed_channels.shape).astype("uint8")
+            predict_image = np.zeros(reconstructed_channel.shape).astype("uint8")
 
             for i in range(width_num - 1):
                 for j in range(height_num - 1):
@@ -328,7 +324,26 @@ class Encoder:
                                     i * BLOCK_SIZE : (i + 1) * BLOCK_SIZE,
                                     j * BLOCK_SIZE : (j + 1) * BLOCK_SIZE,
                                 ] = temp_mask
+
             residual_frame = self.residual_compression(channel, predict_image)
+            if count == 0:
+                # draw_motion_vectors(channel, motion_vectors)
+
+                fig = plt.figure()
+                ax = fig.add_subplot(3, 2, 1)
+                ax.set_title('Original')
+                ax.imshow(channel, cmap=plt.get_cmap(name='gray'))
+                ax2 = fig.add_subplot(3, 2, 2)
+                ax2.set_title('Rec image')
+                ax2.imshow(reconstructed_channel, cmap=plt.get_cmap(name='gray'))
+                ax3 = fig.add_subplot(3, 2, 3)
+                ax3.set_title('predict_image')
+                ax3.imshow(predict_image, cmap=plt.get_cmap(name='gray'))
+                ax4 = fig.add_subplot(3, 2, 4)
+                ax4.set_title('residual_frame')
+                ax4.imshow( residual_frame, cmap=plt.get_cmap(name='gray'))
+                plt.show()
+                count = 1
 
             channels.append(np.array(residual_frame))
             mv_for_channels.append(np.array(motion_vectors))
