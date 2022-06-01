@@ -1,7 +1,7 @@
 import dataclasses
 import math
 import time
-
+from scipy.fftpack import idct
 import cv2
 import numpy as np
 
@@ -102,6 +102,7 @@ class Decoder:
             is_key_frame=encoded_frame.is_key_frame,
             width=encoded_frame.width,
             height=encoded_frame.height,
+            method=1
         ).channels
 
         encoded_frame.channels.luminosity = decoded_frame_channels.luminosity
@@ -163,8 +164,8 @@ class Decoder:
 
         decoded_frame.channels.is_encoded = False
         decoded_frame.channels.luminosity = reconstructed_channels[0]
-        decoded_frame.channels.chromaticCb = reconstructed_channels[1]
-        decoded_frame.channels.chromaticCr = reconstructed_channels[2]
+        decoded_frame.channels.chromaticCr = reconstructed_channels[1]
+        decoded_frame.channels.chromaticCb = reconstructed_channels[2]
 
         return decoded_frame
 
@@ -175,25 +176,9 @@ class Decoder:
 
         # return self.encode(frame=residual_frame)
 
-    @staticmethod
-    def _get_matrix_A():
-        A = [
-            [
-                np.round(
-                    math.sqrt((1 if (i == 0) else 2) / BLOCK_SIZE)
-                    * math.cos(((2 * j + 1) * i * math.pi) / (2 * BLOCK_SIZE)),
-                    3,
-                )
-                for j in range(0, BLOCK_SIZE)
-            ]
-            for i in range(0, BLOCK_SIZE)
-        ]
-        return A
 
     def idct(self, Y):
-        A = self._get_matrix_A()
-
-        return np.array(A).transpose().dot(Y).dot(np.array(A))
+        return idct(idct(Y, axis=0, norm='ortho'), axis=1, norm='ortho')
 
     def dequantization(self, Y, coefficient):
         return np.multiply(np.array(Y), coefficient)

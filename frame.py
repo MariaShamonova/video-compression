@@ -26,6 +26,7 @@ class Frame:
         is_key_frame: bool,
         frame=None,
         channels: Optional["Channels"] = None,
+        method: int = 0
     ):
 
         if frame is not None:
@@ -40,8 +41,8 @@ class Frame:
             SSH = 2
             crf = cv2.boxFilter(cr, ddepth=-1, ksize=(2, 2))
             cbf = cv2.boxFilter(cb, ddepth=-1, ksize=(2, 2))
-            crsub = append_zeros(crf[::SSV, ::SSH])
-            cbsub = append_zeros(cbf[::SSV, ::SSH])
+            crsub = append_zeros(crf[::SSV, ::SSH]) if method == 0 else cr
+            cbsub = append_zeros(cbf[::SSV, ::SSH]) if method == 0 else cb
 
             self.channels = Channels(
                 is_encoded=False,
@@ -56,14 +57,27 @@ class Frame:
         self.is_key_frame = is_key_frame
         self.width = width
         self.height = height
+        self.method = method
 
-    def show_frame(self):
+    def build_frame(self):
+        y = np.zeros((self.height, self.width))
+        y[:self.height, :self.width] = np.array(self.channels.luminosity)
 
-        y = np.array(self.channels.luminosity)
+        chromatic_shape = (self.height // 2, self.width // 2) if self.method == 0 else (self.height, self.width)
+        cb = np.zeros(chromatic_shape)
+        cb[:chromatic_shape[0], :chromatic_shape[1]] = self.channels.chromaticCb[:chromatic_shape[0],
+                                                       :chromatic_shape[1]]
 
-        cb = np.array(cv2.resize(self.channels.chromaticCb, (self.width, self.height)))
+        cr = np.zeros(chromatic_shape)
+        cr[:chromatic_shape[0], :chromatic_shape[1]] = self.channels.chromaticCr[:chromatic_shape[0],
+                                                       :chromatic_shape[1]]
+        if self.method == 0:
 
-        cr = np.array(cv2.resize(self.channels.chromaticCr, (self.width, self.height)))
+            cb = np.array(cv2.resize(cb, (self.width, self.height), interpolation=cv2.INTER_CUBIC))
+            cr = np.array(cv2.resize(cr, (self.width, self.height), interpolation=cv2.INTER_CUBIC))
+        else:
+            cb = np.array(cb)
+            cr = np.array(cr)
 
         rec_frame = cv2.merge([y, cb, cr]).astype(np.uint8)
 
@@ -73,13 +87,12 @@ class Frame:
         rgb = rgb.dot(xform.T)
         np.putmask(rgb, rgb > 255, 255)
         np.putmask(rgb, rgb < 0, 0)
-        rec_frame = cv2.cvtColor(np.uint8(rgb), cv2.COLOR_RGB2BGR)
+        return cv2.cvtColor(np.uint8(rgb), cv2.COLOR_RGB2BGR)
+
+    def show_frame(self):
+        rec_frame = self.build_frame()
         cv2.imshow('', rec_frame)
         cv2.waitKey(0)
-
-        # cv2.imshow("dd", rec_frame)
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
 
     def upsample_image(self):
 
@@ -89,7 +102,12 @@ class Frame:
                 cv2.resize(self.channels.chromaticCr, (self.width, self.height)),
                 cv2.resize(self.channels.chromaticCb, (self.width, self.height)),
 
-            ]
+            ] if self.method == 0 else
+            [
+                self.channels.luminosity,
+                self.channels.chromaticCr,
+                self.channels.chromaticCb
+             ]
         )
 
         reImg = cv2.cvtColor(DecAll.astype(np.uint8), cv2.COLOR_YCrCb2BGR)
@@ -101,7 +119,13 @@ class Frame:
         sr.setModel("edsr", 3)
         upsmpled_img = sr.upsample(reImg)
 
-        return cv2.resize(upsmpled_img, (self.width, self.height))
+        if self.method == 0:
+            return cv2.resize(upsmpled_img, (self.width, self.height))
+        else:
+
+            mask = np.zeros((self.height, self. width, 3))
+            mask[:self.height, :self.width] = upsmpled_img[:self.height, :self.width]
+            return mask.astype(np.uint8)
 
 
 @dataclasses.dataclass

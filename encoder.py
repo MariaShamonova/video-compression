@@ -1,7 +1,7 @@
 import dataclasses
 import math
 
-from scipy.fftpack import dct, idct
+from scipy.fft import dct
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
@@ -38,7 +38,8 @@ class Encoder:
                 for j in range(0, column):
 
                     dct_coeff = self.dct(X[i][j])
-                    # if i == 0 and j == 0:
+                    # if i == 20 and j == 30:
+                    #     print(dct_coeff)
                     #     self.dct_output(dct_coeff)
 
                     quantinization_coeff = self.quantization(
@@ -132,22 +133,14 @@ class Encoder:
 
         return [ycbcr[:, :, 0], crsub, cbsub]
 
-    @staticmethod
-    def _get_matrix_A(N):
-        A = [[np.round(math.sqrt((1 if (i == 0) else 2) / N) * math.cos(((2 * j + 1) * i * math.pi) / (2 * N)), 3)
-              for j in range(0, N)] for i in range(0, N)]
-        return A
-
-    def dct(self, X, N=8):
-        A = self._get_matrix_A(N)
-
-        return np.array(A).dot(X).dot(np.array(A).transpose())
+    def dct(self, X):
+        return dct(dct(X, axis=0, norm='ortho'), axis=1, norm='ortho' )
 
     def dct_output(self, block):
         plt.figure()
-        plt.imshow(block, cmap='gray', interpolation='nearest')
+        plt.imshow(block, cmap='gray', interpolation='nearest', vmax=np.max(block)*0.01, vmin=0)
         plt.colorbar(shrink=0.5)
-        plt.title("DCT transform of selected Region")
+        plt.title("8x8 DCT")
         plt.show()
 
 
@@ -257,6 +250,27 @@ class Encoder:
         return np.linalg.norm(np.array(array_1) - np.array(array_2))
         # return mean_squared_error(array_1, array_2)
 
+    @staticmethod
+    def check_blocks(channel, first_img, sec_img, i, j, k, h):
+        import matplotlib.ticker as plticker
+        fig = plt.figure()
+        # ax1 = fig.add_subplot(3, 2, 1)
+        # ax1.set_title(str(i) + ' - '+ str(j) + ', '+ str(k) + ' - '+ str(h))
+        # ax1.imshow(first_img, cmap=plt.get_cmap(name='gray'))
+        # ax2 = fig.add_subplot(3, 2, 2)
+        # ax2.imshow(sec_img, cmap=plt.get_cmap(name='gray'))
+        ax3 = fig.add_subplot()
+        myInterval = 8.
+        loc = plticker.MultipleLocator(base=myInterval)
+        ax3.xaxis.set_major_locator(loc)
+        ax3.yaxis.set_major_locator(loc)
+
+        ax3.grid(which='major', axis='both', linestyle='-')
+        ax3.imshow(channel, cmap=plt.get_cmap(name='gray'))
+        plt.show()
+
+
+
     def motion_estimation(
         self, current_frame: Frame, reconstructed_frame: Frame,
     ) -> Frame:
@@ -276,22 +290,20 @@ class Encoder:
             width_num = width // BLOCK_SIZE
             height_num = height // BLOCK_SIZE
 
-            motion_vectors = [
-                [[0, 0] for _ in range(height_num)] for _ in range(width_num)
-            ]
+            motion_vectors =np.zeros((width_num, height_num, 2)).astype(np.uint8)
 
             end_num = SEARCH_AREA // BLOCK_SIZE
             interval = (SEARCH_AREA - BLOCK_SIZE) // 2
 
             mask_image_1 = np.zeros(
                 (width + interval * 2, height + interval * 2)
-            ).astype("uint8")
+            )
             mask_image_1[
                 : mask_image_1.shape[0] - interval * 2,
                 : mask_image_1.shape[1] - interval * 2,
             ] = np.array(reconstructed_channel)
 
-            predict_image = np.zeros(reconstructed_channel.shape).astype("uint8")
+            predict_image = np.zeros(reconstructed_channel.shape)
 
             for i in range(width_num - 1):
                 for j in range(height_num - 1):
@@ -317,7 +329,9 @@ class Encoder:
                             ]
 
                             res = self._calculate_distance(temp_mask, temp_image)
-                            if res <= temp_res:
+                            if res < temp_res or k == 0 and h == 0:
+                                # if k != 0 and h != 0:
+                                #     self.check_blocks(channel, temp_mask, temp_image,i, j, k, h)
                                 temp_res = res
                                 motion_vectors[i][j][0], motion_vectors[i][j][1] = k, h
                                 predict_image[
@@ -325,25 +339,13 @@ class Encoder:
                                     j * BLOCK_SIZE : (j + 1) * BLOCK_SIZE,
                                 ] = temp_mask
 
-            residual_frame = self.residual_compression(channel, predict_image)
-            if count == 0:
-                # draw_motion_vectors(channel, motion_vectors)
 
-                fig = plt.figure()
-                ax = fig.add_subplot(3, 2, 1)
-                ax.set_title('Original')
-                ax.imshow(channel, cmap=plt.get_cmap(name='gray'))
-                ax2 = fig.add_subplot(3, 2, 2)
-                ax2.set_title('Rec image')
-                ax2.imshow(reconstructed_channel, cmap=plt.get_cmap(name='gray'))
-                ax3 = fig.add_subplot(3, 2, 3)
-                ax3.set_title('predict_image')
-                ax3.imshow(predict_image, cmap=plt.get_cmap(name='gray'))
-                ax4 = fig.add_subplot(3, 2, 4)
-                ax4.set_title('residual_frame')
-                ax4.imshow( residual_frame, cmap=plt.get_cmap(name='gray'))
-                plt.show()
-                count = 1
+            residual_frame = self.residual_compression(channel, predict_image)
+            # if count == 0:
+            #     # draw_motion_vectors(channel, motion_vectors)
+            #     plt.imshow(predict_image, cmap=plt.get_cmap(name='gray'))
+            #     plt.show()
+            #     count = 1
 
             channels.append(np.array(residual_frame))
             mv_for_channels.append(np.array(motion_vectors))
