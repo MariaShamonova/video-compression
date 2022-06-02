@@ -16,7 +16,7 @@ from decoder import Decoder
 from frame import Frame
 from repository import compute_mse, compute_psnr, compression_ratio
 
-METHOD = 1
+METHOD = 0
 
 
 def create_rec_frame(reconstructed_frame):
@@ -53,26 +53,26 @@ if __name__ == "__main__":
         ret, frame = cap.read()
         original_frame = frame
         HEIGHT, WIDTH, num_channels = frame.shape
-
+        is_key_frame = check_key_frame(i)
         frame = Frame(
-            frame=frame, is_key_frame=check_key_frame(i), width=WIDTH, height=HEIGHT, method=METHOD
+            frame=frame, is_key_frame=is_key_frame, width=WIDTH, height=HEIGHT, method=METHOD
         )
         # frame.show_frame()
-
-        if i == 0:
-            # frame.show_frame()
+        if i == 0  or i == 4:
             if i % 5 == 0:
-                # bit_stream, dict_Haffman, frame_y = encoder.encode_I_frame(frame=frame)
-                encoded_frame = encoder.encode_I_frame(frame=frame, method=METHOD)
+                bit_stream, dictionary = encoder.encode_I_frame(frame=frame, method=METHOD)
+                # encoded_frame = encoder.encode_I_frame(frame=frame, method=METHOD)
             else:
-                # bit_stream, dict_Haffman, frame_y = encoder.encode_B_frame(frame=frame, reconstructed_frame=reconstructed_frames[i - 1])
-                encoded_frame = encoder.encode_B_frame(
-                    frame=frame,
-                    reconstructed_frame=reconstructed_frames[
-                        len(reconstructed_frames) - 1
-                    ],
-                    method=METHOD,
-                )
+                bit_stream, dict_Haffman, frame_y = encoder.encode_B_frame(frame=frame,
+                                                                           reconstructed_frame=reconstructed_frames[len(reconstructed_frames) - 1],
+                                                                           method=METHOD)
+                # encoded_frame = encoder.encode_B_frame(
+                #     frame=frame,
+                #     reconstructed_frame=reconstructed_frames[
+                #         len(reconstructed_frames) - 1
+                #     ],
+                #     method=METHOD,
+                # )
             # temp_lum = concat_blocks(encoded_frame.channels.luminosity)
             # temp_cr = concat_blocks(encoded_frame.channels.chromaticCr)
             # temp_cb = concat_blocks(encoded_frame.channels.chromaticCb)
@@ -83,8 +83,8 @@ if __name__ == "__main__":
             # create_rec_frame(encoded_channels)
             # encoded_channels = read_rec_frame()
 
-            # inverse_transformed_frame = decoder.decode(bit_stream, dict_Haffman, frame_y.shape)
-            dequantized_frame = decoder.decode(encoded_frame, method=METHOD)
+            dequantized_frame = decoder.decode(bit_stream=bit_stream, dictionary=dictionary, is_key_frame=is_key_frame, method=METHOD, width=WIDTH, height=HEIGHT)
+            # dequantized_frame = decoder.decode(encoded_frame, method=METHOD)
 
             if i % 5 == 0:
                 reconstructed_frames.append(dequantized_frame)
@@ -94,7 +94,8 @@ if __name__ == "__main__":
                 print('MSE ERROR I-frame: ',mse_error)
                 print('PSNR ERROR I-frame: ', psnr_error)
                 # print('CR I-frame: ', compression_ratio)
-                dequantized_frame.show_frame()
+
+                # dequantized_frame.show_frame()
             else:
                 # Прибавить предыдущий реконструированный кадр
                 reconstructed_frame = decoder.decode_B_frame(
@@ -108,7 +109,12 @@ if __name__ == "__main__":
                 print('MSE ERROR B-frame: ', mse_error)
                 print('PSNR ERROR B-frame: ', psnr_error)
                 # print('CR B-frame: ', compression_ratio)
-                reconstructed_frames.append(reconstructed_frame)
+                # cv2.imshow('', dequantized_frame.channels.luminosity)
+                # cv2.waitKey(0)
+                # plt.imshow(dequantized_frame.channels.luminosity, cmap=plt.get_cmap(name='gray'))
+                # plt.show()
+
+                # reconstructed_frames.append(reconstructed_frame)
                 # fig = plt.figure()
                 # ax = fig.add_subplot(3, 2, 1)
                 # ax.set_title('Original')

@@ -6,15 +6,7 @@ import numpy as np
 from cv2 import dnn_superres
 from matplotlib import pyplot as plt
 
-from repository import round_num
-
-
-def append_zeros(frame):
-    width, height = frame.shape
-    mask = np.zeros((round_num(width), round_num(height)))
-    mask = mask.astype("uint8")
-    mask[:width, :height] = np.array(frame)
-    return mask
+from repository import append_zeros
 
 
 @dataclasses.dataclass
@@ -60,6 +52,7 @@ class Frame:
         self.method = method
 
     def build_frame(self):
+
         y = np.zeros((self.height, self.width))
         y[:self.height, :self.width] = np.array(self.channels.luminosity)
 
@@ -72,7 +65,6 @@ class Frame:
         cr[:chromatic_shape[0], :chromatic_shape[1]] = self.channels.chromaticCr[:chromatic_shape[0],
                                                        :chromatic_shape[1]]
         if self.method == 0:
-
             cb = np.array(cv2.resize(cb, (self.width, self.height), interpolation=cv2.INTER_CUBIC))
             cr = np.array(cv2.resize(cr, (self.width, self.height), interpolation=cv2.INTER_CUBIC))
         else:
@@ -95,12 +87,14 @@ class Frame:
         cv2.waitKey(0)
 
     def upsample_image(self):
+        interpolation_methods = ['INTER_NEAREST', 'INTER_LINEAR', 'INTER_CUBIC']
+        interpolation_method = interpolation_methods[0]
 
         DecAll = cv2.merge(
             [
-                cv2.resize(self.channels.luminosity, (self.width, self.height)),
-                cv2.resize(self.channels.chromaticCr, (self.width, self.height)),
-                cv2.resize(self.channels.chromaticCb, (self.width, self.height)),
+                cv2.resize(self.channels.luminosity, (self.width, self.height),  interpolation=getattr(cv2, interpolation_method)),
+                cv2.resize(self.channels.chromaticCr, (self.width, self.height),  interpolation=getattr(cv2, interpolation_method)),
+                cv2.resize(self.channels.chromaticCb, (self.width, self.height),  interpolation=getattr(cv2, interpolation_method)),
 
             ] if self.method == 0 else
             [
@@ -112,12 +106,14 @@ class Frame:
 
         reImg = cv2.cvtColor(DecAll.astype(np.uint8), cv2.COLOR_YCrCb2BGR)
 
-        sr = dnn_superres.DnnSuperResImpl_create()
-
-        path = "EDSR_x3.pb"
-        sr.readModel(path)
-        sr.setModel("edsr", 3)
-        upsmpled_img = sr.upsample(reImg)
+        if self.method == 1:
+            sr = dnn_superres.DnnSuperResImpl_create()
+            path = "EDSR_x3.pb"
+            sr.readModel(path)
+            sr.setModel("edsr", 3)
+            upsmpled_img = sr.upsample(reImg)
+        else:
+            upsmpled_img = reImg
 
         if self.method == 0:
             return cv2.resize(upsmpled_img, (self.width, self.height))

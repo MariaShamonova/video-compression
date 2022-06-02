@@ -13,7 +13,7 @@ from constants import (
     SEARCH_AREA,
 )
 from frame import EncodedFrame, Frame, Channels
-from repository import get_probabilities, HuffmanTree, reshape_frame, draw_motion_vectors
+from repository import get_probabilities, HuffmanTree, reshape_frame, concat_blocks
 
 
 from sklearn.metrics import mean_squared_error
@@ -22,12 +22,14 @@ from scipy.fftpack import dct, idct
 
 @dataclasses.dataclass
 class Encoder:
-    def encode_traditional_method(self, frame: Frame) -> Frame:
+    def encode_traditional_method(self, frame: Frame) -> str:
 
         all_dct_elements = []
         quantized_channels = []
 
-        for idx, channel in enumerate(frame.channels.list_channels):
+        for idx, (channel, motion_vectors) in enumerate(zip(frame.channels.list_channels,
+                                                            frame.channels.list_motion_vectors)):
+
 
             X = reshape_frame(channel, BLOCK_SIZE)
             row, column = X.shape[0], X.shape[1]
@@ -36,41 +38,59 @@ class Encoder:
 
             for i in range(0,  row):
                 for j in range(0, column):
+                    condition = False
+                    if condition:
+                        print('block')
+                        print(X[i][j])
 
+                        print('')
                     dct_coeff = self.dct(X[i][j])
-                    # if i == 20 and j == 30:
-                    #     print(dct_coeff)
-                    #     self.dct_output(dct_coeff)
-
+                    if condition:
+                        print('dct coeff')
+                        print(dct_coeff.astype(np.uint8))
+                        print('')
                     quantinization_coeff = self.quantization(
                         dct_coeff,
                         MATRIX_QUANTIZATION_CHROMATIC
                         if idx > 0
                         else MATRIX_QUANTIZATION,
                     )
-                    Y[i][j] = quantinization_coeff
+                    if condition:
+                        print('quantinization_coeff')
+                        print(quantinization_coeff)
+                        print('')
 
-                    # sequence_coeff = self.zig_zag_transform(quantinization_coeff)
-                    # series_value_coeff = self.separate_pair(sequence_coeff)
-                    # Y[i][j] = series_value_coeff
-                    # all_dct_elements.append(abs(Y[i][j][1]))
-                    # all_dct_elements.extend([abs(Y[i][j][index])
-                    #                          for index in range(1, len(Y[i][j]) - 1)])
+                    sequence_coeff = self.zig_zag_transform(quantinization_coeff)
+                    if condition:
+                        print('zigzag transform')
+                        print(sequence_coeff)
+                        print('')
+                    series_value_coeff = self.separate_pair(sequence_coeff)
+                    Y[i][j] = series_value_coeff
+                    if not frame.is_key_frame:
+                        all_dct_elements.append(motion_vectors[i][j][0])
+                        all_dct_elements.append(motion_vectors[i][j][1])
+                    try:
 
-            # dict_Haffman = self.entropy_encoder(all_dct_elements)
-            # bit_stream = self.transform_to_bit_stream(dict_Haffman, Y)
+                        all_dct_elements.append(abs(Y[i][j][1]))
+                    except:
+                        print(i, j)
+                    all_dct_elements.extend([abs(Y[i][j][index])
+                                             for index in range(1, len(Y[i][j]) - 1)])
 
-            # return bit_stream, dict_Haffman, frame
-            quantized_channels.append(np.array(Y))
+            quantized_channels.append(Y)
 
         frame.channels.is_encoded = True
         frame.channels.luminosity = quantized_channels[0]
         frame.channels.chromaticCr = quantized_channels[1]
         frame.channels.chromaticCb = quantized_channels[2]
 
-        return frame
+        dictionary = self.entropy_encoder(all_dct_elements)
+        bit_stream = self.transform_to_bit_stream(dictionary,  frame)
 
-    def encodeNN(self, frame: Frame) -> Frame:
+        return bit_stream, dictionary
+
+    def encode_nn(self, frame: Frame) -> Frame:
         import torch
         import torch.nn as nn
         from torchvision import transforms
@@ -109,7 +129,7 @@ class Encoder:
         if method == 0:
             return self.encode_traditional_method(frame=frame)
         else:
-            return self.encodeNN(frame=frame)
+            return self.encode_nn(frame=frame)
 
     def encode_B_frame(self, frame: Frame, reconstructed_frame: Frame, method) -> Frame:
         assert frame.is_key_frame is False
@@ -217,33 +237,42 @@ class Encoder:
         return codewars
 
     @staticmethod
-    def transform_to_bit_stream(codewars, Y):
-        bit_stream = ""
+    def transform_to_bit_stream(dictionary, quantized_frame: Frame) -> str:
+        bit_stream_for_all_channels = ""
 
-        r = len(Y)
-        c = len(Y[0])
+        for (channel, motion_vector) in zip(quantized_frame.channels.list_channels,
+                                            quantized_frame.channels.list_motion_vectors):
+            bit_stream = ''
+            r = len(channel)
+            c = len(channel[0])
 
-        for i in range(r):
-            for j in range(c):
-                ind = 0
+            for i in range(r):
+                for j in range(c):
+                    ind = 0
+                    if not quantized_frame.is_key_frame:
+                        bit_stream += dictionary[str(abs(motion_vector[i][j][0]))]
+                        bit_stream += dictionary[str(abs(motion_vector[i][j][1]))]
+                    while ind < len(channel[i][j]) - 1:
+                        item = channel[i][j][ind]
+                        try:
+                            bit_stream += dictionary[str(abs(item))]
 
-                while ind < len(Y[i][j]) - 1:
-                    item = Y[i][j][ind]
-                    try:
-                        bit_stream += codewars[str(abs(item))]
+                            if ind % 3 == 1:
+                                bit_stream += "0" if item < 0 else "1"
 
-                        if ind % 3 == 1:
-                            bit_stream += "0" if item < 0 else "1"
+                                bit_stream += "0" if channel[i][j][ind + 1] == 0 else "1"
+                                ind += 1
 
-                            bit_stream += "0" if Y[i][j][ind + 1] == 0 else "1"
-                            ind += 1
+                        except Exception:
+                            print("Word: " + str(abs(item)) + " not exist")
 
-                    except Exception:
-                        print("Word: " + str(abs(item)) + " not exist")
+                        ind += 1
 
-                    ind += 1
-
-        return bit_stream
+            # print(bit_stream)
+            # print('')
+            print(bit_stream[:100])
+            bit_stream_for_all_channels += bit_stream
+        return bit_stream_for_all_channels
 
     @staticmethod
     def _calculate_distance(array_1: np.ndarray, array_2: np.ndarray) -> float:
@@ -284,8 +313,8 @@ class Encoder:
         for channel, reconstructed_channel in zip(
             current_frame.channels.list_channels, reconstructed_frame_channels
         ):
-            # cv2.imshow('pred', reconstructed_channel)
-            # cv2.waitKey(0)
+
+
             width, height = channel.shape
             width_num = width // BLOCK_SIZE
             height_num = height // BLOCK_SIZE

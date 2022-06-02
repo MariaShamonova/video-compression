@@ -120,6 +120,12 @@ def round_num(num):
         num += 1
     return num
 
+def append_zeros(frame):
+    width, height = frame.shape
+    mask = np.zeros((round_num(width), round_num(height)))
+    mask = mask.astype("uint8")
+    mask[:width, :height] = np.array(frame)
+    return mask
 
 def concat_blocks(blocks):
     blocks = np.array(blocks)

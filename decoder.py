@@ -1,6 +1,8 @@
 import dataclasses
 import math
 import time
+
+from matplotlib import pyplot as plt
 from scipy.fftpack import idct
 import cv2
 import numpy as np
@@ -11,44 +13,79 @@ from constants import (
     BLOCK_SIZE,
 )
 from frame import Channels, Frame
-from repository import reshape_frame
-from repository import concat_blocks
+from repository import reshape_frame, concat_blocks, append_zeros
 
 
 @dataclasses.dataclass
 class Decoder:
-    def _decode_traditional(self, encoded_frame: Frame) -> Frame:
+    def _decode_traditional(self, bit_stream: str, dictionary: dict, is_key_frame: bool, method: int, width: int, height: int) -> Frame:
         dequantized_channels = []
-        # blocks = self.entropy_decoder(bit_stream, codewars, BLOCK_SIZE_FOR_DCT, shape)
+        channels, motion_vectors = self.entropy_decoder(bit_stream, dictionary, is_key_frame, method, width, height)
 
-        for idx, channel in enumerate(encoded_frame.channels.list_channels):
+        for idx, channel in enumerate(channels):
 
-            frame_shape = encoded_frame.channels.list_channels[idx].shape
+            frame_shape = np.array(channels[idx]).shape
             rows, columns = frame_shape[0], frame_shape[1]
 
             Y = [[[] for c in range(columns)] for r in range(int(rows))]
 
             for i in range(rows):
                 for j in range(columns):
-                    # Y[i][j] = self.inverse_zig_zag_transform(blocks[i][j], 8)
-                    Y[i][j] = encoded_frame.channels.list_channels[idx][i][j]
+                    condition = False
+                    if condition:
+                        print('block after entropy decoder')
+                        print(channels[idx][i][j])
+                        print('')
+                    Y[i][j] = self.inverse_zig_zag_transform(channels[idx][i][j])
+                    if condition:
+                        print('inverse block')
+                        print( Y[i][j] )
+                        print('')
                     Y[i][j] = self.dequantization(
                         Y[i][j],
                         MATRIX_QUANTIZATION_CHROMATIC
                         if idx > 0
                         else MATRIX_QUANTIZATION,
                     )
-                    Y[i][j] = self.idct(Y[i][j])
+                    if condition:
+                        print('after dequant')
+                        print(Y[i][j])
+                        print('')
+                    Y[i][j] = self.idct(Y[i][j]).astype(np.uint8)
+                    if condition:
 
-            dequantized_channels.append(concat_blocks(Y))
+                        print('after inverse dct')
+                        # plt.imshow(Y[i][j], cmap=plt.get_cmap(name='gray'))
+                        # plt.title('decode')
+                        plt.show()
+                        print(Y[i][j])
+                        print(Y[i][j].shape)
+                        print('')
+            # if idx == 0:
+            #     plt.imshow(Y, cmap=plt.get_cmap(name='gray'))
+            #     plt.show()
+            dequantized_channels.append(concat_blocks(np.array(Y)))
+            print('f')
+        if is_key_frame:
 
-        encoded_frame.channels.luminosity = dequantized_channels[0]
+            channels = Channels(
+                is_encoded=False,
+                luminosity=dequantized_channels[0],
+                chromaticCr=dequantized_channels[1],
+                chromaticCb=dequantized_channels[2]
+            )
+        else:
+            channels = Channels(
+                is_encoded=False,
+                luminosity=dequantized_channels[0],
+                chromaticCr=dequantized_channels[1],
+                chromaticCb=dequantized_channels[2],
+                mv_luminosity=motion_vectors[0],
+                mv_chromaticCr=motion_vectors[1],
+                mv_chromaticCb=motion_vectors[2]
+            )
 
-        encoded_frame.channels.chromaticCr = dequantized_channels[1]
-        encoded_frame.channels.chromaticCb = dequantized_channels[2]
-
-        encoded_frame.channels.is_encoded = False
-
+        encoded_frame = Frame(channels=channels, is_key_frame=is_key_frame, width=width, height=height)
         return encoded_frame
 
     @staticmethod
@@ -111,13 +148,13 @@ class Decoder:
 
         return encoded_frame
 
-    def decode(self, encoded_frame: Frame, method) -> Frame:
-        assert encoded_frame.channels.is_encoded is True
+    def decode(self, bit_stream: str, dictionary: dict, is_key_frame: bool, method: int, width: int, height: int) -> Frame:
+        # assert encoded_frame.channels.is_encoded is True
 
         if method == 0:
-            return self._decode_traditional(encoded_frame)
+            return self._decode_traditional(bit_stream, dictionary, is_key_frame, method, width, height)
         else:
-            return self._decode_nn(encoded_frame)
+            return self._decode_nn(bit_stream)
 
     def decode_B_frame(self, decoded_frame: Frame, reconstructed_frame: Frame, method):
 
@@ -169,31 +206,24 @@ class Decoder:
 
         return decoded_frame
 
-        # predict_image, motion_vectors, motion_vectors_for_draw = self.motion_estimation(reconstructed_frame, frame_y,
-        #                                                                                 width, height, BLOCK_SIZE,
-        #                                                                                 SEARCH_AREA)
-        # reconstructed_frame = self.residual_decompression(frame, residual_frame)
-
-        # return self.encode(frame=residual_frame)
-
-
     def idct(self, Y):
         return idct(idct(Y, axis=0, norm='ortho'), axis=1, norm='ortho')
 
     def dequantization(self, Y, coefficient):
         return np.multiply(np.array(Y), coefficient)
 
-    def inverse_zig_zag_transform(self, zigzag, BLOCK_SIZE_FOR_DCT):
-        blocks_8x8 = np.zeros((BLOCK_SIZE_FOR_DCT, BLOCK_SIZE_FOR_DCT))
+    def inverse_zig_zag_transform(self, zigzag):
+        blocks_8x8 = np.zeros((BLOCK_SIZE, BLOCK_SIZE))
 
         for index in range(1, 9):
             slice = [i[:index] for i in blocks_8x8[:index]]
             i = 0 if index % 2 == 0 else index - 1
             j = 0 if index % 2 == 1 else index - 1
             for ind in range(len(slice)):
-                blocks_8x8[i][j] = zigzag[0]
 
+                blocks_8x8[i][j] = zigzag[0]
                 zigzag.pop(0)
+
                 i = i + (1 if index % 2 == 0 else -1)
                 j = j + (1 if index % 2 == 1 else -1)
 
@@ -201,65 +231,76 @@ class Decoder:
 
             slice = [i[:index] for i in blocks_8x8[:index]]
             i = (
-                BLOCK_SIZE_FOR_DCT - len(slice)
+                BLOCK_SIZE - len(slice)
                 if index % 2 == 0
-                else BLOCK_SIZE_FOR_DCT - 1
+                else BLOCK_SIZE - 1
             )
             j = (
-                BLOCK_SIZE_FOR_DCT - len(slice)
+                BLOCK_SIZE - len(slice)
                 if index % 2 == 1
-                else BLOCK_SIZE_FOR_DCT - 1
+                else BLOCK_SIZE - 1
             )
 
             for ind in range(len(slice)):
-                blocks_8x8[i][j] = int(zigzag[0])
+                blocks_8x8[i][j] = zigzag[0]
                 zigzag.pop(0)
                 i = i + (1 if index % 2 == 0 else -1)
                 j = j + (1 if index % 2 == 1 else -1)
 
-        return blocks_8x8.astype(int)
+        return blocks_8x8
 
     @staticmethod
-    def entropy_decoder(bit_stream, codewars, BLOCK_SIZE_FOR_DCT, shape):
+    def append_num(num):
+        while num % 8 != 0:
+            num += 1
+        return num
+
+    def entropy_decoder(self, bit_stream, dictionary, is_key_frame, method, width, height):
         values = []
         bites = ""
+        num_values = 0
 
-        codewars = dict((v, k) for k, v in codewars.items())
+        dictionary = dict((v, k) for k, v in dictionary.items())
 
-        countValues = 0
-        i = 0
-
-        rows = int(shape[0] / 8)
-        columns = int(shape[1] / 8)
-
+        rows = height // 8
+        columns = width // 8
         blocks = [[[] for i in range(columns)] for j in range(rows)]
-
+        motion_vectors = [[[0, 0] for i in range(columns)] for j in range(rows)]
+        temp_channels = []
+        temp_motion_vectors = []
+        num_channel = 0
+        num_channel_temp = 0
         r = 0
         c = 0
 
-        start_time = time.time()
+        i = 0
         while i <= len(bit_stream):
+
             try:
                 bites += bit_stream[i]
-                value = codewars[bites]
+                value = dictionary[bites]
 
-                if countValues == 0:
-
+                if num_values == 0 and not is_key_frame:
+                    motion_vectors[r][c][0] = int(value)
+                    num_values += 1
+                elif num_values == 1 and not is_key_frame:
+                    motion_vectors[r][c][1] = int(value)
+                    num_values += 1
+                elif num_values == 2 and not is_key_frame or num_values == 0 and is_key_frame:
                     values.extend([0 for z in range(int(value))])
-
-                    countValues = 1
-                elif countValues == 1:
+                    num_values += 1
+                elif num_values == 3 and not is_key_frame or num_values == 1 and is_key_frame:
                     values.append(
-                        int(("" if int(bit_stream[i + 1]) else "-") + value)
-                    )  # Значение
+                        int(("" if int(bit_stream[i+1]) else "-") + value)
+                    )
 
-                    if bit_stream[i + 2] == "1":
+                    if bit_stream[i+2] == "1":
                         values.extend(
                             [
                                 0
                                 for z in range(
                                     int(
-                                        BLOCK_SIZE_FOR_DCT * BLOCK_SIZE_FOR_DCT
+                                        BLOCK_SIZE * BLOCK_SIZE
                                         - len(values)
                                     )
                                 )
@@ -267,23 +308,44 @@ class Decoder:
                         )
 
                         blocks[r][c] = values
-
-                        if c == columns - 1 and r < rows - 1:
+                        if len(values) != 64:
+                            print(r, c)
+                        if c == columns - 1 and r < rows :
                             r += 1
 
+                        if r == rows and c == columns - 1:
+                            temp_channels.append(blocks)
+                            temp_motion_vectors.append(motion_vectors)
+                            num_channel += 1
+                            bit_stream = bit_stream[i+3:]
+                            i = -3
+
+                            if num_channel == 1 and method == 0:
+                                rows = self.append_num(height // 2) // 8
+                                columns = self.append_num(width // 2) // 8
+                                print(bit_stream[:100])
+
+                            values = []
+                            blocks = [[[] for i in range(columns)] for j in range(rows)]
+                            motion_vectors = [[[0, 0] for i in range(columns)] for j in range(rows)]
+                            r = 0
+
                         c = c + 1 if c < columns - 1 else 0
-
                         values = []
-                    countValues = 0
+                    num_values = 0
                     i += 2
-                bites = ""
 
+                bites = ""
             except Exception:
                 pass
 
             i += 1
-        print("--- %s seconds ---" % (time.time() - start_time))
-        return blocks
+
+        if is_key_frame:
+            return temp_channels, []
+        else:
+            return temp_channels, temp_motion_vectors
+
 
     @staticmethod
     def restruct_image(
@@ -338,6 +400,6 @@ class Decoder:
                 )
         return np.array(restruct_image, dtype=np.uint8)
 
-    def residual_decompression(self, original_frame, predicted_frame):
-
+    @staticmethod
+    def residual_decompression(original_frame, predicted_frame):
         return np.add(original_frame, predicted_frame)
