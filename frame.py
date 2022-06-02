@@ -53,17 +53,15 @@ class Frame:
 
     def build_frame(self):
 
-        y = np.zeros((self.height, self.width))
-        y[:self.height, :self.width] = np.array(self.channels.luminosity)
+        y = self.channels.luminosity[:self.height, :self.width]
 
         chromatic_shape = (self.height // 2, self.width // 2) if self.method == 0 else (self.height, self.width)
-        cb = np.zeros(chromatic_shape)
-        cb[:chromatic_shape[0], :chromatic_shape[1]] = self.channels.chromaticCb[:chromatic_shape[0],
-                                                       :chromatic_shape[1]]
 
-        cr = np.zeros(chromatic_shape)
-        cr[:chromatic_shape[0], :chromatic_shape[1]] = self.channels.chromaticCr[:chromatic_shape[0],
-                                                       :chromatic_shape[1]]
+
+        cb = self.channels.chromaticCb[:chromatic_shape[0], :chromatic_shape[1]]
+        cr = self.channels.chromaticCr[:chromatic_shape[0], :chromatic_shape[1]]
+
+
         if self.method == 0:
             cb = np.array(cv2.resize(cb, (self.width, self.height), interpolation=cv2.INTER_CUBIC))
             cr = np.array(cv2.resize(cr, (self.width, self.height), interpolation=cv2.INTER_CUBIC))

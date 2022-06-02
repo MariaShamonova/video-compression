@@ -254,3 +254,9 @@ def show_image(image1, image2):
     ax2.set_title('Decoded image')
     ax2.imshow(image2)
     plt.show()
+
+
+def append_num(num):
+    while num % 8 != 0:
+        num += 1
+    return num

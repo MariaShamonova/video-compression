@@ -22,10 +22,12 @@ from scipy.fftpack import dct, idct
 
 @dataclasses.dataclass
 class Encoder:
-    def encode_traditional_method(self, frame: Frame) -> str:
+    def encode_traditional_method(self, frame: Frame, is_key_frame: bool) -> str:
 
         all_dct_elements = []
         quantized_channels = []
+        if not is_key_frame:
+            print('ffd')
 
         for idx, (channel, motion_vectors) in enumerate(zip(frame.channels.list_channels,
                                                             frame.channels.list_motion_vectors)):
@@ -38,45 +40,30 @@ class Encoder:
 
             for i in range(0,  row):
                 for j in range(0, column):
-                    condition = False
-                    if condition:
-                        print('block')
-                        print(X[i][j])
 
-                        print('')
                     dct_coeff = self.dct(X[i][j])
-                    if condition:
-                        print('dct coeff')
-                        print(dct_coeff.astype(np.uint8))
-                        print('')
+
                     quantinization_coeff = self.quantization(
                         dct_coeff,
                         MATRIX_QUANTIZATION_CHROMATIC
                         if idx > 0
                         else MATRIX_QUANTIZATION,
                     )
-                    if condition:
-                        print('quantinization_coeff')
-                        print(quantinization_coeff)
-                        print('')
 
                     sequence_coeff = self.zig_zag_transform(quantinization_coeff)
-                    if condition:
-                        print('zigzag transform')
-                        print(sequence_coeff)
-                        print('')
+
                     series_value_coeff = self.separate_pair(sequence_coeff)
                     Y[i][j] = series_value_coeff
                     if not frame.is_key_frame:
                         all_dct_elements.append(motion_vectors[i][j][0])
                         all_dct_elements.append(motion_vectors[i][j][1])
-                    try:
 
+                    if len(Y[i][j]):
+                        all_dct_elements.append(abs(Y[i][j][0]))
                         all_dct_elements.append(abs(Y[i][j][1]))
-                    except:
-                        print(i, j)
-                    all_dct_elements.extend([abs(Y[i][j][index])
-                                             for index in range(1, len(Y[i][j]) - 1)])
+
+                        all_dct_elements.extend([abs(Y[i][j][index])
+                                                 for index in range(1, len(Y[i][j]) - 1)])
 
             quantized_channels.append(Y)
 
@@ -127,7 +114,7 @@ class Encoder:
     def encode_I_frame(self, frame: Frame, method) -> Frame:
 
         if method == 0:
-            return self.encode_traditional_method(frame=frame)
+            return self.encode_traditional_method(frame=frame, is_key_frame=True)
         else:
             return self.encode_nn(frame=frame)
 
@@ -136,7 +123,7 @@ class Encoder:
 
         residual_frame = self.motion_estimation(frame, reconstructed_frame)
         if method == 0:
-            encoded_frame = self.encode_traditional_method(frame=residual_frame)
+            encoded_frame = self.encode_traditional_method(frame=residual_frame, is_key_frame=False)
         else:
             encoded_frame = self.encodeNN(frame=residual_frame)
         return encoded_frame
@@ -208,17 +195,20 @@ class Encoder:
             print(seq)
 
         count_zero = 0
-        seq = seq[: i + 1]
+        if i == 0 and seq[i] == 0:
+            transform_seq = [63, 0, 'EOB']
+        else:
+            seq = seq[: i + 1]
 
-        for i in range(0, len(seq)):
+            for i in range(0, len(seq)):
 
-            if seq[i] != 0:
-                is_latest_element = "ЕОВ" if i == (len(seq) - 1) else 0
-                transform_seq.extend([count_zero, seq[i], is_latest_element])
+                if seq[i] != 0:
+                    is_latest_element = "ЕОВ" if i == (len(seq) - 1) else 0
+                    transform_seq.extend([count_zero, seq[i], is_latest_element])
 
-                count_zero = 0
-            else:
-                count_zero += 1
+                    count_zero = 0
+                else:
+                    count_zero += 1
 
         return transform_seq
 
@@ -248,12 +238,16 @@ class Encoder:
 
             for i in range(r):
                 for j in range(c):
+                    if i == 8 and j == 3:
+                        print('p')
                     ind = 0
                     if not quantized_frame.is_key_frame:
                         bit_stream += dictionary[str(abs(motion_vector[i][j][0]))]
                         bit_stream += dictionary[str(abs(motion_vector[i][j][1]))]
                     while ind < len(channel[i][j]) - 1:
                         item = channel[i][j][ind]
+                        # if item == 71:
+                        #     print(i, j)
                         try:
                             bit_stream += dictionary[str(abs(item))]
 
@@ -268,9 +262,9 @@ class Encoder:
 
                         ind += 1
 
-            # print(bit_stream)
+                # print(len(bit_stream))
             # print('')
-            print(bit_stream[:100])
+            # print(bit_stream[:100])
             bit_stream_for_all_channels += bit_stream
         return bit_stream_for_all_channels
 

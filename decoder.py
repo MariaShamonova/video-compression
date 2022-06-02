@@ -13,7 +13,7 @@ from constants import (
     BLOCK_SIZE,
 )
 from frame import Channels, Frame
-from repository import reshape_frame, concat_blocks, append_zeros
+from repository import reshape_frame, concat_blocks, append_num
 
 
 @dataclasses.dataclass
@@ -31,41 +31,20 @@ class Decoder:
 
             for i in range(rows):
                 for j in range(columns):
-                    condition = False
-                    if condition:
-                        print('block after entropy decoder')
-                        print(channels[idx][i][j])
-                        print('')
+
                     Y[i][j] = self.inverse_zig_zag_transform(channels[idx][i][j])
-                    if condition:
-                        print('inverse block')
-                        print( Y[i][j] )
-                        print('')
+
                     Y[i][j] = self.dequantization(
                         Y[i][j],
                         MATRIX_QUANTIZATION_CHROMATIC
                         if idx > 0
                         else MATRIX_QUANTIZATION,
                     )
-                    if condition:
-                        print('after dequant')
-                        print(Y[i][j])
-                        print('')
-                    Y[i][j] = self.idct(Y[i][j]).astype(np.uint8)
-                    if condition:
 
-                        print('after inverse dct')
-                        # plt.imshow(Y[i][j], cmap=plt.get_cmap(name='gray'))
-                        # plt.title('decode')
-                        plt.show()
-                        print(Y[i][j])
-                        print(Y[i][j].shape)
-                        print('')
-            # if idx == 0:
-            #     plt.imshow(Y, cmap=plt.get_cmap(name='gray'))
-            #     plt.show()
+                    Y[i][j] = self.idct(Y[i][j]).astype(np.uint8)
+
             dequantized_channels.append(concat_blocks(np.array(Y)))
-            print('f')
+
         if is_key_frame:
 
             channels = Channels(
@@ -161,6 +140,8 @@ class Decoder:
         reconstructed_channels = []
         num_chanels = len(decoded_frame.channels.list_channels)
         for chanel_index in range(num_chanels):
+
+
             decoded_frame_shape = decoded_frame.channels.list_channels[
                 chanel_index
             ].shape
@@ -193,6 +174,7 @@ class Decoder:
                         print(i, j)
 
             predicted_image = concat_blocks(predicted_image)
+
             reconstructed_channels.append(
                 self.residual_decompression(
                     predicted_image, decoded_frame.channels.list_channels[chanel_index]
@@ -249,11 +231,7 @@ class Decoder:
 
         return blocks_8x8
 
-    @staticmethod
-    def append_num(num):
-        while num % 8 != 0:
-            num += 1
-        return num
+
 
     def entropy_decoder(self, bit_stream, dictionary, is_key_frame, method, width, height):
         values = []
@@ -293,6 +271,9 @@ class Decoder:
                     values.append(
                         int(("" if int(bit_stream[i+1]) else "-") + value)
                     )
+                    num_values = 0
+                    if not is_key_frame and bit_stream[i+2] != "1":
+                        num_values = 2
 
                     if bit_stream[i+2] == "1":
                         values.extend(
@@ -308,10 +289,13 @@ class Decoder:
                         )
 
                         blocks[r][c] = values
-                        if len(values) != 64:
-                            print(r, c)
-                        if c == columns - 1 and r < rows :
+
+
+
+                        if c == columns - 1 and r < rows:
+
                             r += 1
+
 
                         if r == rows and c == columns - 1:
                             temp_channels.append(blocks)
@@ -321,8 +305,8 @@ class Decoder:
                             i = -3
 
                             if num_channel == 1 and method == 0:
-                                rows = self.append_num(height // 2) // 8
-                                columns = self.append_num(width // 2) // 8
+                                rows = append_num(height // 2) // 8
+                                columns = append_num(width // 2) // 8
                                 print(bit_stream[:100])
 
                             values = []
@@ -331,8 +315,11 @@ class Decoder:
                             r = 0
 
                         c = c + 1 if c < columns - 1 else 0
+
                         values = []
-                    num_values = 0
+
+
+
                     i += 2
 
                 bites = ""
