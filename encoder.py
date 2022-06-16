@@ -15,8 +15,6 @@ from constants import (
 from frame import EncodedFrame, Frame, Channels
 from repository import get_probabilities, HuffmanTree, reshape_frame, concat_blocks
 
-
-from sklearn.metrics import mean_squared_error
 from scipy.fftpack import dct, idct
 
 
@@ -27,18 +25,18 @@ class Encoder:
         all_dct_elements = []
         quantized_channels = []
         if not is_key_frame:
-            print('ffd')
+            print("ffd")
 
-        for idx, (channel, motion_vectors) in enumerate(zip(frame.channels.list_channels,
-                                                            frame.channels.list_motion_vectors)):
-
+        for idx, (channel, motion_vectors) in enumerate(
+            zip(frame.channels.list_channels, frame.channels.list_motion_vectors)
+        ):
 
             X = reshape_frame(channel, BLOCK_SIZE)
             row, column = X.shape[0], X.shape[1]
 
             Y = [[[] for c in range(column)] for r in range(row)]
 
-            for i in range(0,  row):
+            for i in range(0, row):
                 for j in range(0, column):
 
                     dct_coeff = self.dct(X[i][j])
@@ -62,8 +60,12 @@ class Encoder:
                         all_dct_elements.append(abs(Y[i][j][0]))
                         all_dct_elements.append(abs(Y[i][j][1]))
 
-                        all_dct_elements.extend([abs(Y[i][j][index])
-                                                 for index in range(1, len(Y[i][j]) - 1)])
+                        all_dct_elements.extend(
+                            [
+                                abs(Y[i][j][index])
+                                for index in range(1, len(Y[i][j]) - 1)
+                            ]
+                        )
 
             quantized_channels.append(Y)
 
@@ -73,7 +75,37 @@ class Encoder:
         frame.channels.chromaticCb = quantized_channels[2]
 
         dictionary = self.entropy_encoder(all_dct_elements)
-        bit_stream = self.transform_to_bit_stream(dictionary,  frame)
+        bit_stream = self.transform_to_bit_stream(dictionary, frame)
+
+        return bit_stream, dictionary
+
+    def encode_nn_entropy(self, frame: Frame):
+
+        all_dct_elements = []
+        for idx, (channel, motion_vectors) in enumerate(
+            zip(frame.channels.list_channels, frame.channels.list_motion_vectors)
+        ):
+            quantized_channels = []
+            X = reshape_frame(channel, BLOCK_SIZE)
+            row, column = X.shape[0], X.shape[1]
+            Y = [[[] for c in range(column)] for r in range(row)]
+
+            for i in range(0, row):
+                for j in range(0, column):
+                    sequence_coeff = np.array(X[i][j]).flatten("F")
+                    series_value_coeff = self.separate_pair(sequence_coeff)
+                    Y[i][j] = series_value_coeff
+
+                    if len(Y[i][j]):
+                        all_dct_elements.extend(
+                            np.absolute(Y[i][j][: len(Y[i][j]) - 1])
+                        )
+
+            quantized_channels.append(Y)
+            all_dct_elements.extend(channel)
+
+        dictionary = self.entropy_encoder(all_dct_elements)
+        bit_stream = self.transform_to_bit_stream(dictionary, frame)
 
         return bit_stream, dictionary
 
@@ -98,18 +130,36 @@ class Encoder:
 
         layers_pipeline = nn.Sequential(conv_layer, pool_layer)
 
-        frame.channels.luminosity = layers_pipeline(
-            frame.channels.luminosity.unsqueeze(0)
+        frame.channels.luminosity = np.array(
+            layers_pipeline(frame.channels.luminosity.unsqueeze(0))
+            .mul_(255.0)
+            .squeeze(0)
+            .squeeze(0)
+            .byte()
+            .cpu()
         )
-        frame.channels.chromaticCb = layers_pipeline(
-            frame.channels.chromaticCb.unsqueeze(0)
+
+        frame.channels.chromaticCb = np.array(
+            layers_pipeline(frame.channels.chromaticCb.unsqueeze(0))
+            .mul_(255.0)
+            .squeeze(0)
+            .squeeze(0)
+            .byte()
+            .cpu()
         )
-        frame.channels.chromaticCr = layers_pipeline(
-            frame.channels.chromaticCr.unsqueeze(0)
+
+        frame.channels.chromaticCr = np.array(
+            layers_pipeline(frame.channels.chromaticCr.unsqueeze(0))
+            .mul_(255.0)
+            .squeeze(0)
+            .squeeze(0)
+            .byte()
+            .cpu()
         )
+
         frame.channels.is_encoded = True
 
-        return frame
+        return self.encode_nn_entropy(frame)
 
     def encode_I_frame(self, frame: Frame, method) -> Frame:
 
@@ -123,7 +173,9 @@ class Encoder:
 
         residual_frame = self.motion_estimation(frame, reconstructed_frame)
         if method == 0:
-            encoded_frame = self.encode_traditional_method(frame=residual_frame, is_key_frame=False)
+            encoded_frame = self.encode_traditional_method(
+                frame=residual_frame, is_key_frame=False
+            )
         else:
             encoded_frame = self.encodeNN(frame=residual_frame)
         return encoded_frame
@@ -141,15 +193,20 @@ class Encoder:
         return [ycbcr[:, :, 0], crsub, cbsub]
 
     def dct(self, X):
-        return dct(dct(X, axis=0, norm='ortho'), axis=1, norm='ortho' )
+        return dct(dct(X, axis=0, norm="ortho"), axis=1, norm="ortho")
 
     def dct_output(self, block):
         plt.figure()
-        plt.imshow(block, cmap='gray', interpolation='nearest', vmax=np.max(block)*0.01, vmin=0)
+        plt.imshow(
+            block,
+            cmap="gray",
+            interpolation="nearest",
+            vmax=np.max(block) * 0.01,
+            vmin=0,
+        )
         plt.colorbar(shrink=0.5)
         plt.title("8x8 DCT")
         plt.show()
-
 
     def quantization(self, Y, coefficient):
         quantization_coeff = np.round((np.divide(np.array(Y), coefficient)).astype(int))
@@ -196,7 +253,7 @@ class Encoder:
 
         count_zero = 0
         if i == 0 and seq[i] == 0:
-            transform_seq = [63, 0, 'EOB']
+            transform_seq = [63, 0, "EOB"]
         else:
             seq = seq[: i + 1]
 
@@ -216,13 +273,8 @@ class Encoder:
     def entropy_encoder(blocks):
 
         probability = get_probabilities(blocks)
-        # codewars = algorithmHaffman(probability)
-
         tree = HuffmanTree(probability)
         codewars = tree.get_code()
-
-        # print(codewars)
-        # transformToBitStream(codewars, blocks)
 
         return codewars
 
@@ -230,31 +282,33 @@ class Encoder:
     def transform_to_bit_stream(dictionary, quantized_frame: Frame) -> str:
         bit_stream_for_all_channels = ""
 
-        for (channel, motion_vector) in zip(quantized_frame.channels.list_channels,
-                                            quantized_frame.channels.list_motion_vectors):
-            bit_stream = ''
+        for (channel, motion_vector) in zip(
+            quantized_frame.channels.list_channels,
+            quantized_frame.channels.list_motion_vectors,
+        ):
+            bit_stream = ""
             r = len(channel)
             c = len(channel[0])
 
             for i in range(r):
                 for j in range(c):
                     if i == 8 and j == 3:
-                        print('p')
+                        print("p")
                     ind = 0
                     if not quantized_frame.is_key_frame:
                         bit_stream += dictionary[str(abs(motion_vector[i][j][0]))]
                         bit_stream += dictionary[str(abs(motion_vector[i][j][1]))]
                     while ind < len(channel[i][j]) - 1:
                         item = channel[i][j][ind]
-                        # if item == 71:
-                        #     print(i, j)
                         try:
                             bit_stream += dictionary[str(abs(item))]
 
                             if ind % 3 == 1:
                                 bit_stream += "0" if item < 0 else "1"
 
-                                bit_stream += "0" if channel[i][j][ind + 1] == 0 else "1"
+                                bit_stream += (
+                                    "0" if channel[i][j][ind + 1] == 0 else "1"
+                                )
                                 ind += 1
 
                         except Exception:
@@ -262,37 +316,28 @@ class Encoder:
 
                         ind += 1
 
-                # print(len(bit_stream))
-            # print('')
-            # print(bit_stream[:100])
             bit_stream_for_all_channels += bit_stream
         return bit_stream_for_all_channels
 
     @staticmethod
     def _calculate_distance(array_1: np.ndarray, array_2: np.ndarray) -> float:
         return np.linalg.norm(np.array(array_1) - np.array(array_2))
-        # return mean_squared_error(array_1, array_2)
 
     @staticmethod
-    def check_blocks(channel, first_img, sec_img, i, j, k, h):
+    def check_blocks(channel):
         import matplotlib.ticker as plticker
+
         fig = plt.figure()
-        # ax1 = fig.add_subplot(3, 2, 1)
-        # ax1.set_title(str(i) + ' - '+ str(j) + ', '+ str(k) + ' - '+ str(h))
-        # ax1.imshow(first_img, cmap=plt.get_cmap(name='gray'))
-        # ax2 = fig.add_subplot(3, 2, 2)
-        # ax2.imshow(sec_img, cmap=plt.get_cmap(name='gray'))
+
         ax3 = fig.add_subplot()
-        myInterval = 8.
+        myInterval = 8.0
         loc = plticker.MultipleLocator(base=myInterval)
         ax3.xaxis.set_major_locator(loc)
         ax3.yaxis.set_major_locator(loc)
 
-        ax3.grid(which='major', axis='both', linestyle='-')
-        ax3.imshow(channel, cmap=plt.get_cmap(name='gray'))
+        ax3.grid(which="major", axis="both", linestyle="-")
+        ax3.imshow(channel, cmap=plt.get_cmap(name="gray"))
         plt.show()
-
-
 
     def motion_estimation(
         self, current_frame: Frame, reconstructed_frame: Frame,
@@ -303,24 +348,20 @@ class Encoder:
 
         reconstructed_frame_channels = reconstructed_frame.channels.list_channels
 
-        count = 0
         for channel, reconstructed_channel in zip(
             current_frame.channels.list_channels, reconstructed_frame_channels
         ):
-
 
             width, height = channel.shape
             width_num = width // BLOCK_SIZE
             height_num = height // BLOCK_SIZE
 
-            motion_vectors =np.zeros((width_num, height_num, 2)).astype(np.uint8)
+            motion_vectors = np.zeros((width_num, height_num, 2)).astype(np.uint8)
 
             end_num = SEARCH_AREA // BLOCK_SIZE
             interval = (SEARCH_AREA - BLOCK_SIZE) // 2
 
-            mask_image_1 = np.zeros(
-                (width + interval * 2, height + interval * 2)
-            )
+            mask_image_1 = np.zeros((width + interval * 2, height + interval * 2))
             mask_image_1[
                 : mask_image_1.shape[0] - interval * 2,
                 : mask_image_1.shape[1] - interval * 2,
@@ -353,8 +394,7 @@ class Encoder:
 
                             res = self._calculate_distance(temp_mask, temp_image)
                             if res < temp_res or k == 0 and h == 0:
-                                # if k != 0 and h != 0:
-                                #     self.check_blocks(channel, temp_mask, temp_image,i, j, k, h)
+
                                 temp_res = res
                                 motion_vectors[i][j][0], motion_vectors[i][j][1] = k, h
                                 predict_image[
@@ -362,14 +402,7 @@ class Encoder:
                                     j * BLOCK_SIZE : (j + 1) * BLOCK_SIZE,
                                 ] = temp_mask
 
-
             residual_frame = self.residual_compression(channel, predict_image)
-            # if count == 0:
-            #     # draw_motion_vectors(channel, motion_vectors)
-            #     plt.imshow(predict_image, cmap=plt.get_cmap(name='gray'))
-            #     plt.show()
-            #     count = 1
-
             channels.append(np.array(residual_frame))
             mv_for_channels.append(np.array(motion_vectors))
 

@@ -13,14 +13,24 @@ from constants import (
     BLOCK_SIZE,
 )
 from frame import Channels, Frame
-from repository import reshape_frame, concat_blocks, append_num
+from repository import reshape_frame, concat_blocks, append_zeros
 
 
 @dataclasses.dataclass
 class Decoder:
-    def _decode_traditional(self, bit_stream: str, dictionary: dict, is_key_frame: bool, method: int, width: int, height: int) -> Frame:
+    def _decode_traditional(
+        self,
+        bit_stream: str,
+        dictionary: dict,
+        is_key_frame: bool,
+        method: int,
+        width: int,
+        height: int,
+    ) -> Frame:
         dequantized_channels = []
-        channels, motion_vectors = self.entropy_decoder(bit_stream, dictionary, is_key_frame, method, width, height)
+        channels, motion_vectors = self.entropy_decoder(
+            bit_stream, dictionary, is_key_frame, method, width, height
+        )
 
         for idx, channel in enumerate(channels):
 
@@ -31,9 +41,7 @@ class Decoder:
 
             for i in range(rows):
                 for j in range(columns):
-
                     Y[i][j] = self.inverse_zig_zag_transform(channels[idx][i][j])
-
                     Y[i][j] = self.dequantization(
                         Y[i][j],
                         MATRIX_QUANTIZATION_CHROMATIC
@@ -44,14 +52,14 @@ class Decoder:
                     Y[i][j] = self.idct(Y[i][j]).astype(np.uint8)
 
             dequantized_channels.append(concat_blocks(np.array(Y)))
-
+            print("f")
         if is_key_frame:
 
             channels = Channels(
                 is_encoded=False,
                 luminosity=dequantized_channels[0],
                 chromaticCr=dequantized_channels[1],
-                chromaticCb=dequantized_channels[2]
+                chromaticCb=dequantized_channels[2],
             )
         else:
             channels = Channels(
@@ -61,10 +69,12 @@ class Decoder:
                 chromaticCb=dequantized_channels[2],
                 mv_luminosity=motion_vectors[0],
                 mv_chromaticCr=motion_vectors[1],
-                mv_chromaticCb=motion_vectors[2]
+                mv_chromaticCb=motion_vectors[2],
             )
 
-        encoded_frame = Frame(channels=channels, is_key_frame=is_key_frame, width=width, height=height)
+        encoded_frame = Frame(
+            channels=channels, is_key_frame=is_key_frame, width=width, height=height
+        )
         return encoded_frame
 
     @staticmethod
@@ -118,7 +128,7 @@ class Decoder:
             is_key_frame=encoded_frame.is_key_frame,
             width=encoded_frame.width,
             height=encoded_frame.height,
-            method=1
+            method=1,
         ).channels
 
         encoded_frame.channels.luminosity = decoded_frame_channels.luminosity
@@ -127,11 +137,20 @@ class Decoder:
 
         return encoded_frame
 
-    def decode(self, bit_stream: str, dictionary: dict, is_key_frame: bool, method: int, width: int, height: int) -> Frame:
-        # assert encoded_frame.channels.is_encoded is True
+    def decode(
+        self,
+        bit_stream: str,
+        dictionary: dict,
+        is_key_frame: bool,
+        method: int,
+        width: int,
+        height: int,
+    ) -> Frame:
 
         if method == 0:
-            return self._decode_traditional(bit_stream, dictionary, is_key_frame, method, width, height)
+            return self._decode_traditional(
+                bit_stream, dictionary, is_key_frame, method, width, height
+            )
         else:
             return self._decode_nn(bit_stream)
 
@@ -140,8 +159,6 @@ class Decoder:
         reconstructed_channels = []
         num_chanels = len(decoded_frame.channels.list_channels)
         for chanel_index in range(num_chanels):
-
-
             decoded_frame_shape = decoded_frame.channels.list_channels[
                 chanel_index
             ].shape
@@ -174,7 +191,6 @@ class Decoder:
                         print(i, j)
 
             predicted_image = concat_blocks(predicted_image)
-
             reconstructed_channels.append(
                 self.residual_decompression(
                     predicted_image, decoded_frame.channels.list_channels[chanel_index]
@@ -189,7 +205,7 @@ class Decoder:
         return decoded_frame
 
     def idct(self, Y):
-        return idct(idct(Y, axis=0, norm='ortho'), axis=1, norm='ortho')
+        return idct(idct(Y, axis=0, norm="ortho"), axis=1, norm="ortho")
 
     def dequantization(self, Y, coefficient):
         return np.multiply(np.array(Y), coefficient)
@@ -212,16 +228,8 @@ class Decoder:
         for index in reversed(range(1, 8)):
 
             slice = [i[:index] for i in blocks_8x8[:index]]
-            i = (
-                BLOCK_SIZE - len(slice)
-                if index % 2 == 0
-                else BLOCK_SIZE - 1
-            )
-            j = (
-                BLOCK_SIZE - len(slice)
-                if index % 2 == 1
-                else BLOCK_SIZE - 1
-            )
+            i = BLOCK_SIZE - len(slice) if index % 2 == 0 else BLOCK_SIZE - 1
+            j = BLOCK_SIZE - len(slice) if index % 2 == 1 else BLOCK_SIZE - 1
 
             for ind in range(len(slice)):
                 blocks_8x8[i][j] = zigzag[0]
@@ -231,9 +239,15 @@ class Decoder:
 
         return blocks_8x8
 
+    @staticmethod
+    def append_num(num):
+        while num % 8 != 0:
+            num += 1
+        return num
 
-
-    def entropy_decoder(self, bit_stream, dictionary, is_key_frame, method, width, height):
+    def entropy_decoder(
+        self, bit_stream, dictionary, is_key_frame, method, width, height
+    ):
         values = []
         bites = ""
         num_values = 0
@@ -264,62 +278,60 @@ class Decoder:
                 elif num_values == 1 and not is_key_frame:
                     motion_vectors[r][c][1] = int(value)
                     num_values += 1
-                elif num_values == 2 and not is_key_frame or num_values == 0 and is_key_frame:
+                elif (
+                    num_values == 2
+                    and not is_key_frame
+                    or num_values == 0
+                    and is_key_frame
+                ):
                     values.extend([0 for z in range(int(value))])
                     num_values += 1
-                elif num_values == 3 and not is_key_frame or num_values == 1 and is_key_frame:
-                    values.append(
-                        int(("" if int(bit_stream[i+1]) else "-") + value)
-                    )
-                    num_values = 0
-                    if not is_key_frame and bit_stream[i+2] != "1":
-                        num_values = 2
+                elif (
+                    num_values == 3
+                    and not is_key_frame
+                    or num_values == 1
+                    and is_key_frame
+                ):
+                    values.append(int(("" if int(bit_stream[i + 1]) else "-") + value))
 
-                    if bit_stream[i+2] == "1":
+                    if bit_stream[i + 2] == "1":
                         values.extend(
                             [
                                 0
                                 for z in range(
-                                    int(
-                                        BLOCK_SIZE * BLOCK_SIZE
-                                        - len(values)
-                                    )
+                                    int(BLOCK_SIZE * BLOCK_SIZE - len(values))
                                 )
                             ]
                         )
 
                         blocks[r][c] = values
-
-
-
+                        if len(values) != 64:
+                            print(r, c)
                         if c == columns - 1 and r < rows:
-
                             r += 1
-
 
                         if r == rows and c == columns - 1:
                             temp_channels.append(blocks)
                             temp_motion_vectors.append(motion_vectors)
                             num_channel += 1
-                            bit_stream = bit_stream[i+3:]
+                            bit_stream = bit_stream[i + 3 :]
                             i = -3
 
                             if num_channel == 1 and method == 0:
-                                rows = append_num(height // 2) // 8
-                                columns = append_num(width // 2) // 8
+                                rows = self.append_num(height // 2) // 8
+                                columns = self.append_num(width // 2) // 8
                                 print(bit_stream[:100])
 
                             values = []
                             blocks = [[[] for i in range(columns)] for j in range(rows)]
-                            motion_vectors = [[[0, 0] for i in range(columns)] for j in range(rows)]
+                            motion_vectors = [
+                                [[0, 0] for i in range(columns)] for j in range(rows)
+                            ]
                             r = 0
 
                         c = c + 1 if c < columns - 1 else 0
-
                         values = []
-
-
-
+                    num_values = 0
                     i += 2
 
                 bites = ""
@@ -332,7 +344,6 @@ class Decoder:
             return temp_channels, []
         else:
             return temp_channels, temp_motion_vectors
-
 
     @staticmethod
     def restruct_image(

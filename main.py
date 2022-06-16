@@ -16,7 +16,7 @@ from decoder import Decoder
 from frame import Frame
 from repository import compute_mse, compute_psnr, compression_ratio
 
-METHOD = 0
+METHOD = 1
 
 
 def create_file(bit_stream):
@@ -34,7 +34,6 @@ def check_key_frame(index):
     return index % 5 == 0
 
 
-
 if __name__ == "__main__":
     cap = cv2.VideoCapture("video3.mp4")
     framespersecond = int(cap.get(cv2.CAP_PROP_FPS))
@@ -47,8 +46,8 @@ if __name__ == "__main__":
     frames = []
 
     reconstructed_frames = []
-    main_bit_stream = ''
-    while cap.isOpened():
+    main_bit_stream = ""
+    while i < 5:
 
         ret, frame = cap.read()
         if not ret:
@@ -58,57 +57,65 @@ if __name__ == "__main__":
         HEIGHT, WIDTH, num_channels = frame.shape
         is_key_frame = check_key_frame(i)
         frame = Frame(
-            frame=frame, is_key_frame=is_key_frame, width=WIDTH, height=HEIGHT, method=METHOD
+            frame=frame,
+            is_key_frame=is_key_frame,
+            width=WIDTH,
+            height=HEIGHT,
+            method=METHOD,
         )
-
-        if i % 5 == 0:
-            bit_stream, dictionary = encoder.encode_I_frame(frame=frame, method=METHOD)
-        else:
-            bit_stream, dictionary = encoder.encode_B_frame(frame=frame,
-                                                                       reconstructed_frame=reconstructed_frames[len(reconstructed_frames) - 1],
-                                                                       method=METHOD)
-        main_bit_stream += bit_stream
-
-        dequantized_frame = decoder.decode(bit_stream=bit_stream, dictionary=dictionary, is_key_frame=is_key_frame, method=METHOD, width=WIDTH, height=HEIGHT)
-
-
-        if i % 5 == 0:
-            reconstructed_frames.append(dequantized_frame)
-            mse_error = compute_mse(original_frame, dequantized_frame.build_frame())
-            psnr_error = compute_psnr(original_frame, dequantized_frame.build_frame())
-            # compression_ratio = compression_ratio(original_frame, dequantized_frame.build_frame())
-            print('MSE ERROR I-frame: ',mse_error)
-            print('PSNR ERROR I-frame: ', psnr_error)
-            # print('CR I-frame: ', compression_ratio)
-
-            # dequantized_frame.show_frame()
-        else:
-            # Прибавить предыдущий реконструированный кадр
-            reconstructed_frame = decoder.decode_B_frame(
-                dequantized_frame,
-                reconstructed_frames[len(reconstructed_frames) - 1],
+        if i == 0 or i == 4:
+            if i % 5 == 0:
+                bit_stream, dictionary = encoder.encode_I_frame(
+                    frame=frame, method=METHOD
+                )
+            else:
+                bit_stream, dictionary = encoder.encode_B_frame(
+                    frame=frame,
+                    reconstructed_frame=reconstructed_frames[
+                        len(reconstructed_frames) - 1
+                    ],
+                    method=METHOD,
+                )
+            main_bit_stream += bit_stream
+            dequantized_frame = decoder.decode(
+                bit_stream=bit_stream,
+                dictionary=dictionary,
+                is_key_frame=is_key_frame,
                 method=METHOD,
+                width=WIDTH,
+                height=HEIGHT,
             )
-            mse_error = compute_mse(original_frame, dequantized_frame.build_frame())
-            psnr_error = compute_psnr(original_frame, dequantized_frame.build_frame())
-            # compression_ratio = compression_ratio(original_frame, dequantized_frame.build_frame())
-            print('MSE ERROR B-frame: ', mse_error)
-            print('PSNR ERROR B-frame: ', psnr_error)
-            # print('CR B-frame: ', compression_ratio)
-            # cv2.imshow('', dequantized_frame.channels.luminosity)
-            # cv2.waitKey(0)
-            # plt.imshow(dequantized_frame.channels.luminosity, cmap=plt.get_cmap(name='gray'))
-            # plt.show()
 
-            print(i)
+            if i % 5 == 0:
+                reconstructed_frames.append(dequantized_frame)
+                mse_error = compute_mse(original_frame, dequantized_frame.build_frame())
+                psnr_error = compute_psnr(
+                    original_frame, dequantized_frame.build_frame()
+                )
 
-            # reconstructed_frame.show_frame()
+                print("MSE ERROR I-frame: ", mse_error)
+                print("PSNR ERROR I-frame: ", psnr_error)
 
-        if ret == False:
-            break
+            else:
 
-        if cv2.waitKey(1) == ord('q'):
-            break
+                reconstructed_frame = decoder.decode_B_frame(
+                    dequantized_frame,
+                    reconstructed_frames[len(reconstructed_frames) - 1],
+                    method=METHOD,
+                )
+                mse_error = compute_mse(original_frame, dequantized_frame.build_frame())
+                psnr_error = compute_psnr(
+                    original_frame, dequantized_frame.build_frame()
+                )
+
+                print("MSE ERROR B-frame: ", mse_error)
+                print("PSNR ERROR B-frame: ", psnr_error)
+
+            if ret == False:
+                break
+
+            if cv2.waitKey(1) == ord("q"):
+                break
 
         i += 1
 

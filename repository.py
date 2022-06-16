@@ -120,12 +120,14 @@ def round_num(num):
         num += 1
     return num
 
+
 def append_zeros(frame):
     width, height = frame.shape
     mask = np.zeros((round_num(width), round_num(height)))
     mask = mask.astype("uint8")
     mask[:width, :height] = np.array(frame)
     return mask
+
 
 def concat_blocks(blocks):
     blocks = np.array(blocks)
@@ -163,9 +165,7 @@ def get_values(bit_stream, codewars, N, shape):
 
                 count_values = 1
             elif count_values == 1:
-                values.append(
-                    int(("" if int(bit_stream[i + 1]) else "-") + value)
-                )  # Значение
+                values.append(int(("" if int(bit_stream[i + 1]) else "-") + value))
 
                 if bit_stream[i + 2] == "1":
 
@@ -188,8 +188,6 @@ def get_values(bit_stream, codewars, N, shape):
 
 def draw_motion_vectors(image, motion_vector):
     backtorgb = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-    # cv2.imshow('draw', backtorgb)
-    # cv2.waitKey(0)
 
     color = (0, 255, 0)
     thickness = 1
@@ -199,17 +197,18 @@ def draw_motion_vectors(image, motion_vector):
         for j in range(columns):
             x_00 = i * BLOCK_SIZE
             y_00 = j * BLOCK_SIZE
-            center = BLOCK_SIZE//2
+            center = BLOCK_SIZE // 2
             start_point = (x_00 + center, y_00 + center)
-            end_point = (x_00 + motion_vector[i][j][0] * BLOCK_SIZE + center, y_00 + motion_vector[i][j][1] * BLOCK_SIZE + center)
+            end_point = (
+                x_00 + motion_vector[i][j][0] * BLOCK_SIZE + center,
+                y_00 + motion_vector[i][j][1] * BLOCK_SIZE + center,
+            )
             if start_point != end_point:
 
                 image = cv2.line(backtorgb, start_point, end_point, color, thickness)
 
-
     plt.imshow(image)
     plt.show()
-    # return image
 
 
 def reshape_frame(frame, N):
@@ -223,13 +222,15 @@ def reshape_frame(frame, N):
 
     return X
 
+
 def compression_ratio(img_in, img_sam):
-    return img_in/img_sam
+    return img_in / img_sam
+
 
 def compute_psnr(img_in, img_sam):
     assert img_in.shape == img_sam.shape
 
-    mse = np.mean((img_in / 255. - img_sam / 255.) ** 2)
+    mse = np.mean((img_in / 255.0 - img_sam / 255.0) ** 2)
     if mse < 1.0e-10:
         return 100
     return 20 * np.log10(1 / np.sqrt(mse))
@@ -237,21 +238,21 @@ def compute_psnr(img_in, img_sam):
 
 def compute_mse(frame, reconstructed_frame):
     assert frame.shape == reconstructed_frame.shape
-    # show_image(frame, reconstructed_frame)
+
     err = np.sum((frame.astype("float") - reconstructed_frame.astype("float")) ** 2)
     err /= float(frame.shape[0] * frame.shape[1])
 
     return err
 
+
 def show_image(image1, image2):
-    # image1 = cv2.cvtColor(image1, cv2.COLOR_BGR2RGB)
-    # image2 = cv2.cvtColor(image2, cv2.COLOR_BGR2RGB)
+
     fig = plt.figure()
     ax = fig.add_subplot(2, 2, 1)
-    ax.set_title('Original')
+    ax.set_title("Original")
     ax.imshow(image1)
     ax2 = fig.add_subplot(2, 2, 2)
-    ax2.set_title('Decoded image')
+    ax2.set_title("Decoded image")
     ax2.imshow(image2)
     plt.show()
 
